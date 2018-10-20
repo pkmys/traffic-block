@@ -80,16 +80,38 @@ void hex_dump_skb(struct sk_buff *skb)
     do
     {
         int i;
+        u8 *it = (u8 *)skb_mac_header(skb);
         printk("\n");
         printk("000000 ");
         for (i = 0; i < skb->len; i++)
         {
-            printk("%02x ", ((u8 *)skb->data)[i]);
+            printk("%02x ", (it[i]));
             if (15 == i % 16)
                 printk("\n%06x ", (i + 1));
         }
         printk("\n");
     } while (0);
+}
+
+static void print_dns(u8 *payload)
+{
+
+    u8 next = payload[12];
+    u16 host_len = 0, i;
+    payload += 13;
+
+    printk("domain: ");
+    while (next != 0 && host_len < 1022)
+    {
+        for (i = 0; i < next; i++, host_len++)
+        {
+            printk("%c", payload[host_len]);
+        }
+        next = payload[host_len];
+        host_len++;
+        printk(".");
+    }
+    printk("\n");
 }
 
 unsigned int HOOK_FN(local_out_hook)
@@ -153,26 +175,16 @@ unsigned int HOOK_FN(local_out_hook)
             data = (unsigned char *)((unsigned char *)udphr + sizeof(*udphr));
 
             DBG_DEBUG("UDP srce Port: %u dest Port: %u", sport, dport);
-
-            tail = skb_tail_pointer(skb);
-            DBG_DEBUG("DATA: %s", data);/*
-            for (it = data; it != tail; ++it)
-            {
-                char c = *(char *)it;
-
-                if (c == '\0')
-                    break;
-
-                printk("%c", c);
-            }
-            printk("\n\n");*/
+            print_dns(data);
         }
     }
 #endif
 #ifdef DBG_HEX_DUMP
     hex_dump_skb(skb);
 #endif
+#ifdef MOD_IP_TRACE
     DBG_DEBUG("srce IP: " NIP4_FMT " dest IP: " NIP4_FMT, NIP4(saddr), NIP4(daddr));
+#endif
 
     return NF_ACCEPT;
 }
@@ -187,8 +199,6 @@ unsigned int HOOK_FN(local_in_hook)
     __u32 saddr, daddr;
     __u16 sport, dport;
     unsigned char *data = NULL; /* data as payload */
-    unsigned char *tail;        /* data end pointer */
-    unsigned char *it;          /* data iterator */
 
     if (!skb)
         return NF_ACCEPT;
@@ -236,29 +246,16 @@ unsigned int HOOK_FN(local_in_hook)
         if (dport == 53)
         {
             data = (unsigned char *)((unsigned char *)udphr + sizeof(*udphr));
-
             DBG_DEBUG("UDP srce Port: %u dest Port: %u", sport, dport);
-
-            tail = skb_tail_pointer(skb);
-            DBG_DEBUG("DATA: %s", data);/*
-            for (it = data; it != tail; ++it)
-            {
-                char c = *(char *)it;
-
-                if (c == '\0')
-                    break;
-
-                printk("%c", c);
-            }
-            printk("\n\n");*/
         }
     }
 #endif
 #ifdef DBG_HEX_DUMP
     hex_dump_skb(skb);
 #endif
+#ifdef MOD_IP_TRACE
     DBG_DEBUG("srce IP: " NIP4_FMT " dest IP: " NIP4_FMT, NIP4(saddr), NIP4(daddr));
-
+#endif
     return NF_ACCEPT;
 }
 
