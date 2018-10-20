@@ -24,10 +24,9 @@
  *                          #MACROS                           *
  *                                                            *
  **************************************************************/
-#define    NF_IP_LOCAL_OUT		3
 
 #define HOOK_FN(hook_name)                                               \
-    hook_name(unsigned int hooknum, struct sk_buff **skb,                \
+    hook_name(unsigned int hooknum, struct sk_buff *skb,                 \
               const struct net_device *in, const struct net_device *out, \
               int (*okfn)(struct sk_buff *))
 
@@ -58,55 +57,50 @@
     if ((debug_level & DEBUG_LEVEL_CRITICAL) == DEBUG_LEVEL_CRITICAL) \
     printk(KERN_CRIT "%s %d: " pr_fmt(fmt) "\n",                      \
            __FUNCTION__, __LINE__, ##__VA_ARGS__)
+
+#define PRINT_INFO(fmt, ...)                              \
+    printk(KERN_INFO "traffic filter: " pr_fmt(fmt) "\n", \
+           __VA_ARGS__)
+
+#define MAC_FMT  "%x:%x:%x:%x:%x:%x"
+#define MAC(addr)   addr[0], addr[1], addr[2],\
+                    addr[3], addr[4], addr[5]
+#define NIP4_FMT "%u.%u.%u.%u"
+#define NIP4(addr) ((addr >> 24) & 0xFF), ((addr >> 16) & 0xFF), \
+                   ((addr >> 8) & 0xFF), ((addr >> 0) & 0xFF)
+
+//filter support
+#define MOD_SUPPORT_LOCAL_OUT
+//#define MOD_SUPPORT_LOCAL_IN
+//#define DBG_HEX_DUMP
+//#define MOD_SUPPORT_TCP
+#define MOD_SUPPORT_UDP
+//#define MOD_SUPPORT_MAC
+
 /**************************************************************
  *                                                            *
  *                         PROTOTYPES                         *
  *                                                            *
  **************************************************************/
 unsigned int HOOK_FN(local_out_hook);
+unsigned int HOOK_FN(local_in_hook);
 
 /**************************************************************
  *                                                            *
  *                           GLOBAL                           *
  *                                                            *
  **************************************************************/
-/*
-/*        Protocol families .pf 
-                (MACRO) 
-	PF_UNSPEC	0	// Unspecified.  
-	PF_INET		2	// IP protocol family.  
-	PF_INET6	10	// IP version 6.
-
-            hook type  .hooknum
-                (MACRO)
-    NF_IP_PRE_ROUTING	0 //After promisc drops, checksum checks.
-    NF_IP_LOCAL_IN		1 //If the packet is destined for this box.
-    NF_IP_FORWARD		2 //If the packet is destined for another interface.
-    NF_IP_LOCAL_OUT		3 //Packets coming from a local process.
-    NF_IP_POST_ROUTING	4 //Packets about to hit the wire.
-
-      hook chain priority order  .priority
-                (enum)
-
-    NF_IP_PRI_FIRST = INT_MIN,
-	NF_IP_PRI_CONNTRACK_DEFRAG = -400,
-	NF_IP_PRI_RAW = -300,
-	NF_IP_PRI_SELINUX_FIRST = -225,
-	NF_IP_PRI_CONNTRACK = -200,
-	NF_IP_PRI_MANGLE = -150,
-	NF_IP_PRI_NAT_DST = -100,
-	NF_IP_PRI_FILTER = 0,       
-	NF_IP_PRI_SECURITY = 50,
-	NF_IP_PRI_NAT_SRC = 100,
-	NF_IP_PRI_SELINUX_LAST = 225,
-	NF_IP_PRI_CONNTRACK_HELPER = 300,
-	NF_IP_PRI_CONNTRACK_CONFIRM = INT_MAX,
-	NF_IP_PRI_LAST = INT_MAX,
-*/
 static struct nf_hook_ops local_out_filter = {
-    .hook = local_out_hook,
+    .hook = (nf_hookfn *)local_out_hook,
     .pf = PF_INET,
-    .hooknum = NF_IP_LOCAL_OUT,
+    .hooknum = NF_INET_POST_ROUTING,
+    .priority = NF_IP_PRI_FILTER,
+};
+
+static struct nf_hook_ops local_in_filter = {
+    .hook = (nf_hookfn *)local_in_hook,
+    .pf = PF_INET,
+    .hooknum = NF_INET_LOCAL_IN,
     .priority = NF_IP_PRI_FILTER,
 };
 
@@ -115,11 +109,11 @@ static struct nf_hook_ops local_out_filter = {
  *                          TYPEDEFS                          *
  *                                                            *
  **************************************************************/
-
 /**************************************************************
  *                                                            *
- *                           START                            *
+ *                          EXTERNS                           *
  *                                                            *
  **************************************************************/
+extern void hex_dump_skb(struct sk_buff*);
 
 #endif /* TRAFFIC_FILTER_MOD_H */
