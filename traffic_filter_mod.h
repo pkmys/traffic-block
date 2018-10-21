@@ -71,7 +71,7 @@
 
 //filter support
 #define MOD_SUPPORT_LOCAL_OUT
-//#define MOD_SUPPORT_LOCAL_IN
+#define MOD_SUPPORT_LOCAL_IN
 //#define DBG_HEX_DUMP
 //#define MOD_SUPPORT_TCP
 #define MOD_SUPPORT_UDP

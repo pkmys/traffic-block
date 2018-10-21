@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 
 #include "traffic_filter_mod.h"
+#include "dns.h"
 
 /**************************************************************
  *                                                            *
@@ -87,7 +88,7 @@ void hex_dump_skb(struct sk_buff *skb)
         {
             printk("%02x ", (it[i]));
             if (15 == i % 16)
-                printk("\n%06x ", (i + 1));
+                printk("\n%06x: ", (i + 1));
         }
         printk("\n");
     } while (0);
@@ -164,7 +165,7 @@ unsigned int HOOK_FN(local_out_hook)
     else
 #endif
 #ifdef MOD_SUPPORT_UDP
-        if (iphr->protocol == IPPROTO_UDP)
+    if (iphr->protocol == IPPROTO_UDP)
     {
         udphr = (struct udphdr *)skb_transport_header(skb);
         sport = ntohs(udphr->source);
@@ -247,6 +248,7 @@ unsigned int HOOK_FN(local_in_hook)
         {
             data = (unsigned char *)((unsigned char *)udphr + sizeof(*udphr));
             DBG_DEBUG("UDP srce Port: %u dest Port: %u", sport, dport);
+            print_dns(data);
         }
     }
 #endif
