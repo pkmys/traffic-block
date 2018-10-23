@@ -8,8 +8,8 @@
  * @copyright: Copyright (C) 2018
  */
 
-#ifndef TRAFFIC_FILTER_MOD_H
-#define TRAFFIC_FILTER_MOD_H
+#ifndef _TRAFFIC_FILTER_MOD_H
+#define _TRAFFIC_FILTER_MOD_H
 
 /**************************************************************
  *                                                            *
@@ -60,7 +60,7 @@
 
 #define PRINT_INFO(fmt, ...)                              \
     printk(KERN_INFO "traffic filter: " pr_fmt(fmt) "\n", \
-           __VA_ARGS__)
+           ##__VA_ARGS__)
 
 #define MAC_FMT  "%x:%x:%x:%x:%x:%x"
 #define MAC(addr)   addr[0], addr[1], addr[2],\
@@ -69,13 +69,46 @@
 #define NIP4(addr) ((addr >> 24) & 0xFF), ((addr >> 16) & 0xFF), \
                    ((addr >> 8) & 0xFF), ((addr >> 0) & 0xFF)
 
+#define EQUAL_NET_ADDR(ip1, ip2, mask) (((ip1 ^ ip2) & mask) == 0)
+
 //filter support
 #define MOD_SUPPORT_LOCAL_OUT
 #define MOD_SUPPORT_LOCAL_IN
-//#define DBG_HEX_DUMP
-//#define MOD_SUPPORT_TCP
+#define DBG_HEX_DUMP
+#define MOD_SUPPORT_TCP
 #define MOD_SUPPORT_UDP
-//#define MOD_SUPPORT_MAC
+#define MOD_SUPPORT_MAC
+
+/**************************************************************
+ *                                                            *
+ *                          TYPEDEFS                          *
+ *                                                            *
+ **************************************************************/
+typedef struct local_rule{
+    uint8_t  in;
+    uint32_t src_ip;
+    uint32_t src_mask;
+    uint32_t dst_ip;
+    uint32_t dst_mask;
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint8_t protocol;    
+
+} local_rule_t;
+
+/* Mode of an instruction */
+typedef enum ops_mode {
+	MFW_NONE = 0,
+	MFW_ADD = 1,
+	MFW_REMOVE = 2,
+	MFW_VIEW = 3
+} ops_mode_t;
+
+/* Control instruction */
+typedef struct tf_ctl {
+	ops_mode_t mode;
+	local_rule_t rule;
+} tf_ctl_t;
 
 /**************************************************************
  *                                                            *
@@ -84,6 +117,13 @@
  **************************************************************/
 unsigned int HOOK_FN(local_out_hook);
 unsigned int HOOK_FN(local_in_hook);
+void hex_dump_skb(struct sk_buff*);
+static void rule_add(local_rule_t *rule);
+static void rule_del(local_rule_t *rule);
+static int tfdev_open(struct inode *inode, struct file *file);
+static int tfdev_release(struct inode *inode, struct file *file);
+static ssize_t tfdev_read(struct file *file, char *buffer, size_t length, loff_t *offset);
+static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length, loff_t *offset);
 
 /**************************************************************
  *                                                            *
@@ -104,16 +144,17 @@ static struct nf_hook_ops local_in_filter = {
     .priority = NF_IP_PRI_FILTER,
 };
 
-/**************************************************************
- *                                                            *
- *                          TYPEDEFS                          *
- *                                                            *
- **************************************************************/
+struct file_operations dev_fops = {
+	.read = tfdev_read,
+	.write = tfdev_write,
+	.open = tfdev_open,
+	.release = tfdev_release
+};
+
 /**************************************************************
  *                                                            *
  *                          EXTERNS                           *
  *                                                            *
  **************************************************************/
-extern void hex_dump_skb(struct sk_buff*);
 
-#endif /* TRAFFIC_FILTER_MOD_H */
+#endif /* _TRAFFIC_FILTER_MOD_H */

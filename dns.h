@@ -1,3 +1,14 @@
+/* *
+ * @module: dns.h
+ * @author: Pawan Kumar
+ * @email: jmppawanhit@gmail.com
+ * @license: GPL
+ * @domain: Linux Network Programming
+ * @description: Demonstrating the simple firewall module 
+ *               using netfilter hooks.
+ * @copyright: Copyright (C) 2018
+ */
+
 #ifndef _DNS_H
 #define _DNS_H
 
@@ -34,29 +45,14 @@ struct dnshdr
     u16 r_num;    /*DNS answer number*/
     u16 ar_num;
     u16 er_num;
+    unsigned char data[0];
 };
 
 static inline unsigned char *dns_get_payload(struct dnshdr *dnshr)
 {
-    return (unsigned char *)(dnshr + sizeof(struct dnshdr));
+    return (unsigned char *)dnshr + sizeof(struct dnshdr);
 }
 
-static void dns_get_domain_name(struct dnshdr *dnshr,unsigned char *domain)
-{
-    unsigned char *dns_pload = dns_get_payload(dnshr);
-    u8 next = dns_pload[0];
-    u16 i, host_len =0;
+static void dns_get_domain_name(struct dnshdr *dnshr, unsigned char *domain);
 
-    dns_pload++;
-    while (next != 0 && host_len < DOMAIN_NAME_MAX_LEN-1)
-    {
-        for (i = 0; i < next; i++, host_len++)
-        {
-            domain[host_len] = dns_pload[host_len];
-        }
-        next = dns_pload[host_len];
-        domain[host_len] = '.';
-        host_len++;
-    }
-}
 #endif /* _DNS_H */
