@@ -50,7 +50,7 @@
  *                           GLOBAL                           *
  *                                                            *
  **************************************************************/
-uint8_t debug_level = 0xFF;
+uint8_t debug_level = 0x03;
 
 static struct list_head In_lhead;  /* Head of inbound-rule list */
 static struct list_head Out_lhead; /* Head of outbound-rule list */
@@ -356,7 +356,7 @@ static void rule_add(local_rule_t *rule)
         list_add_tail(&nodep->list, &In_lhead);
         PRINT_INFO("NEW IN RULE:");
         PRINT_INFO("src ip: " NIP4_FMT "  src mask: " NIP4_FMT "  src port: %u"
-                   "\ndest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
+                   " dest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
                    NIP4(nodep->rule.src_ip), NIP4(nodep->rule.src_mask), nodep->rule.src_port,
                    NIP4(nodep->rule.dst_ip), NIP4(nodep->rule.dst_mask), nodep->rule.dst_port);
     }
@@ -365,7 +365,7 @@ static void rule_add(local_rule_t *rule)
         list_add_tail(&nodep->list, &Out_lhead);
         PRINT_INFO("NEW OUT RULE:");
         PRINT_INFO("src ip: " NIP4_FMT "  src mask: " NIP4_FMT "  src port: %u"
-                   "\ndest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
+                   " dest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
                    NIP4(nodep->rule.src_ip), NIP4(nodep->rule.src_mask), nodep->rule.src_port,
                    NIP4(nodep->rule.dst_ip), NIP4(nodep->rule.dst_mask), nodep->rule.dst_port);
     }
@@ -395,7 +395,7 @@ static void rule_del(local_rule_t *rule)
             else
                 PRINT_INFO("OUT RULE DELETE:");
             PRINT_INFO("src ip: " NIP4_FMT "  src mask: " NIP4_FMT "  src port: %u"
-                       "\ndest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
+                       " dest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
                        NIP4(rule->src_ip), NIP4(rule->src_mask), rule->src_port,
                        NIP4(rule->dst_ip), NIP4(rule->dst_mask), rule->dst_port);
             break;
@@ -575,7 +575,7 @@ static int __init nf_traffic_filter_init(void)
     /* Register netfilter inbound and outbound hooks */
     nf_register_hook(&local_out_filter);
     nf_register_hook(&local_in_filter);
-    DBG_INFO("Module initialize OK");
+    PRINT_INFO("Module initialize OK");
     return 0;
 }
 
@@ -611,10 +611,10 @@ static void __exit nf_traffic_filter_exit(void)
     class_unregister(tfdev_class);
     class_destroy(tfdev_class);  
     unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
-    PRINT_INFO("Device %s is unregistered", DEVICE_INTF_NAME);
+    DBG_INFO("Device %s is unregistered", DEVICE_INTF_NAME);
     nf_unregister_hook(&local_out_filter);
     nf_unregister_hook(&local_in_filter);
-    DBG_INFO("Module uninitialize OK");
+    PRINT_INFO("Module uninitialize OK");
 }
 
 module_init(nf_traffic_filter_init);
