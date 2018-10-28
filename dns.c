@@ -1,6 +1,6 @@
 #include "dns.h"
-
-static void dns_get_domain_name(struct dnshdr *dnshr, unsigned char *domain)
+/*
+void dns_get_domain_name(struct dnshdr *dnshr, unsigned char *domain)
 {
     unsigned char *dns_pload = dns_get_payload(dnshr);
     u8 next = dns_pload[0];
@@ -17,4 +17,4 @@ static void dns_get_domain_name(struct dnshdr *dnshr, unsigned char *domain)
         domain[host_len] = '.';
         host_len++;
     }
-}
+}*/

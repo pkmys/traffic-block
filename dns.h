@@ -15,6 +15,7 @@
 #include <linux/types.h>
 
 #define DOMAIN_NAME_MAX_LEN 1024
+#define DNS_PORT 53
 
 #define H_DNS_QRY 0x00
 #define H_DNS_RES 0x80
@@ -53,6 +54,23 @@ static inline unsigned char *dns_get_payload(struct dnshdr *dnshr)
     return (unsigned char *)dnshr + sizeof(struct dnshdr);
 }
 
-static void dns_get_domain_name(struct dnshdr *dnshr, unsigned char *domain);
+void dns_get_domain_name(struct dnshdr *dnshr, unsigned char *domain)
+{
+    unsigned char *dns_pload = dns_get_payload(dnshr);
+    u8 next = dns_pload[0];
+    u16 i, host_len = 0;
+
+    dns_pload++;
+    while (next != 0 && host_len < DOMAIN_NAME_MAX_LEN - 1)
+    {
+        for (i = 0; i < next; i++, host_len++)
+        {
+            domain[host_len] = dns_pload[host_len];
+        }
+        next = dns_pload[host_len];
+        domain[host_len] = '.';
+        host_len++;
+    }
+}
 
 #endif /* _DNS_H */

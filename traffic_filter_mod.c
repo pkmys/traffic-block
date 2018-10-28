@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/errno.h>
+#include <linux/string.h>
 
 #include "traffic_filter_mod.h"
 #include "dns.h"
@@ -37,12 +38,28 @@
 #define DEVICE_INTF_NAME "tfdev"
 #define DEVICE_MAJOR_NUM 121
 
+#define RD_GEN_TABLE _IOW(DEVICE_MAJOR_NUM, 1, uint32_t *)
+#define RD_KEY_TABLE _IOW(DEVICE_MAJOR_NUM, 2, uint32_t *)
+#define WR_GEN_TABLE _IOW(DEVICE_MAJOR_NUM, 3, uint32_t *)
+#define WR_KEY_TABLE _IOW(DEVICE_MAJOR_NUM, 4, uint32_t *)
+
 /**************************************************************
  *                                                            *
  *                           GLOBAL                           *
  *                                                            *
  **************************************************************/
 uint8_t debug_level = 0xFF;
+
+struct list_head In_lhead;  /* Head of inbound-rule list */
+struct list_head Out_lhead; /* Head of outbound-rule list */
+struct list_head key_lhead;
+
+static int Device_open;   /* Opening counter of a device file */
+static char *user_buffer; /* A buffer for receving data from a user space */
+
+static int PRINT_SWITCH;
+static int WRITE_SWITCH;
+
 /* List node containing a filter rule */
 struct rule_node
 {
@@ -50,11 +67,11 @@ struct rule_node
     struct list_head list;
 };
 
-struct list_head In_lhead;  /* Head of inbound-rule list */
-struct list_head Out_lhead; /* Head of outbound-rule list */
-
-static int Device_open;   /* Opening counter of a device file */
-static char *user_buffer; /* A buffer for receving data from a user space */
+struct key_node
+{
+    tf_key_t key;
+    struct list_head list;
+};
 
 /**************************************************************
  *                                                            *
@@ -119,6 +136,13 @@ unsigned int HOOK_FN(local_out_hook)
     __u32 saddr, daddr;
     __u16 sport, dport;
     unsigned char *payload = NULL; /* data as payload */
+    unsigned char dns_domain[DOMAIN_NAME_MAX_LEN];
+    char *ret;
+    struct key_node *node = NULL;
+    struct list_head *lheadp = NULL;
+    struct list_head *lp = NULL;
+
+    lheadp = &key_lhead;
 
     if (!skb)
         return NF_ACCEPT;
@@ -141,6 +165,17 @@ unsigned int HOOK_FN(local_out_hook)
         sport = ntohs(udphr->source);
         dport = ntohs(udphr->dest);
         payload = (unsigned char *)((unsigned char *)udphr + sizeof(*udphr));
+
+        if( dport == DNS_PORT ){
+            dns_get_domain_name((struct dnshdr *)payload, dns_domain);
+            for (lp = lheadp; lp->next != lheadp; lp = lp->next)
+            {
+                node = list_entry(lp->next, struct key_node, list);
+                ret = strstr(dns_domain, node->key.key);
+                if(ret != NULL)
+                    return NF_DROP;
+            }
+        }
     }
     return NF_ACCEPT;
 }
@@ -222,40 +257,77 @@ static ssize_t tfdev_read(struct file *file, char *buffer, size_t length, loff_t
     int error_count = 0;
     static struct list_head *inlp = &In_lhead;
     static struct list_head *outlp = &Out_lhead;
+    static struct list_head *keylp = &key_lhead;
     struct rule_node *node;
+    struct key_node *knode;
     unsigned char *readptr;
 
-    /* Read a rule if it is not the last one in the inbound list */
-    if (inlp->next != &In_lhead)
+    if (PRINT_SWITCH == PRINT_RULE)
     {
-        node = list_entry(inlp->next, struct rule_node, list);
-        readptr = (unsigned char *)&node->rule;
-        inlp = inlp->next;
-    }
-    /* Read a rule if it is not the last one in the outbound list */
-    else if (outlp->next != &Out_lhead)
-    {
-        node = list_entry(outlp->next, struct rule_node, list);
-        readptr = (unsigned char *)&node->rule;
-        outlp = outlp->next;
-    }
-    /* Reset reading pointers to heads of inbound and outbound lists */
-    else
-    {
-        inlp = &In_lhead;
-        outlp = &Out_lhead;
-        return 0;
-    }
 
-    /* Write to a user-space buffer */
-    error_count = copy_to_user(buffer, readptr, sizeof(local_rule_t));
-    if (error_count == 0){
-        DBG_DEBUG("Read OK");
-    }else{
-        DBG_ERR("Read Fail");
-        return -EFAULT;
+        /* Read a rule if it is not the last one in the inbound list */
+        if (inlp->next != &In_lhead)
+        {
+            node = list_entry(inlp->next, struct rule_node, list);
+            readptr = (unsigned char *)&node->rule;
+            inlp = inlp->next;
+        }
+        /* Read a rule if it is not the last one in the outbound list */
+        else if (outlp->next != &Out_lhead)
+        {
+            node = list_entry(outlp->next, struct rule_node, list);
+            readptr = (unsigned char *)&node->rule;
+            outlp = outlp->next;
+        }
+        /* Reset reading pointers to heads of inbound and outbound lists */
+        else
+        {
+            inlp = &In_lhead;
+            outlp = &Out_lhead;
+            return 0;
+        }
+
+        /* Write to a user-space buffer */
+        error_count = copy_to_user(buffer, readptr, sizeof(local_rule_t));
+        if (error_count == 0)
+        {
+            DBG_DEBUG("Read OK");
+        }
+        else
+        {
+            DBG_ERR("Read Fail");
+            return -EFAULT;
+        }
+        return sizeof(local_rule_t);
     }
-    return sizeof(local_rule_t);
+    else if (PRINT_SWITCH == PRINT_KEY)
+    {
+        if (keylp->next != &key_lhead)
+        {
+            knode = list_entry(keylp->next, struct key_node, list);
+            readptr = (unsigned char *)&knode->key;
+            keylp = keylp->next;
+        }
+        else
+        {
+            keylp = &key_lhead;
+            return 0;
+        }
+
+        /* Write to a user-space buffer */
+        error_count = copy_to_user(buffer, readptr, sizeof(tf_key_t));
+        if (error_count == 0)
+        {
+            DBG_DEBUG("Read OK");
+        }
+        else
+        {
+            DBG_ERR("Read Fail");
+            return -EFAULT;
+        }
+        return sizeof(tf_key_t);
+    }
+    return 0;
 }
 
 /*
@@ -264,12 +336,14 @@ static ssize_t tfdev_read(struct file *file, char *buffer, size_t length, loff_t
 static void rule_add(local_rule_t *rule)
 {
     struct rule_node *nodep;
+    static uid16_t rule_no = 1;
     nodep = (struct rule_node *)kmalloc(sizeof(struct rule_node), GFP_KERNEL);
     if (nodep == NULL)
     {
         DBG_ERR("Cannot add a new rule due to insufficient memory");
         return;
     }
+    rule->rule_no = rule_no;
     nodep->rule = *rule;
 
     if (nodep->rule.in == 1)
@@ -290,11 +364,9 @@ static void rule_add(local_rule_t *rule)
                    NIP4(nodep->rule.src_ip), NIP4(nodep->rule.src_mask), nodep->rule.src_port,
                    NIP4(nodep->rule.dst_ip), NIP4(nodep->rule.dst_mask), nodep->rule.dst_port);
     }
+    rule_no++;
 }
 
-/*
- * The function deletes a rule from inbound and outbound lists.
- */
 static void rule_del(local_rule_t *rule)
 {
     struct rule_node *node;
@@ -309,14 +381,7 @@ static void rule_del(local_rule_t *rule)
     for (lp = lheadp; lp->next != lheadp; lp = lp->next)
     {
         node = list_entry(lp->next, struct rule_node, list);
-        if (node->rule.in == rule->in &&
-            node->rule.src_ip == rule->src_ip &&
-            node->rule.src_mask == rule->src_mask &&
-            node->rule.src_port == rule->src_port &&
-            node->rule.dst_ip == rule->dst_ip &&
-            node->rule.dst_mask == rule->dst_mask &&
-            node->rule.dst_port == rule->dst_port &&
-            node->rule.protocol == rule->protocol)
+        if (node->rule.rule_no == rule->rule_no)
         {
             list_del(lp->next);
             kfree(node);
@@ -334,37 +399,132 @@ static void rule_del(local_rule_t *rule)
 }
 
 /*
+ * The function deletes a rule from inbound and outbound lists.
+ */
+static void key_del(tf_key_t *key)
+{
+    struct key_node *node;
+    struct list_head *lheadp;
+    struct list_head *lp;
+
+    lheadp = &key_lhead;
+
+    for (lp = lheadp; lp->next != lheadp; lp = lp->next)
+    {
+        node = list_entry(lp->next, struct key_node, list);
+        if (node->key.key_id == key->key_id)
+        {
+            list_del(lp->next);
+            PRINT_INFO("Deleted key_id:%d  key:%s", key->key_id, node->key.key);
+            kfree(node);
+            break;
+        }
+    }
+}
+
+static void key_add(tf_key_t *key)
+{
+    struct key_node *nodep;
+    static uint32_t key_id = 1;
+    nodep = (struct key_node *)kmalloc(sizeof(struct key_node), GFP_KERNEL);
+    if (nodep == NULL)
+    {
+        DBG_ERR("Cannot add a new key due to insufficient memory");
+        return;
+    }
+    key->key_id = key_id;
+    nodep->key = *key;
+
+    list_add_tail(&nodep->list, &key_lhead);
+    PRINT_INFO("Added key_id:%d key:%s",key_id, key->key);
+    key_id++;
+}
+
+/*
  * The function handles user-space write operation, which sends add and remove
  * instruction to the MiniFirewall module
  */
 static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length, loff_t *offset)
 {
-    tf_ctl_t *ctlp;
+    tf_ctl_rule_t *ctlp;
+    tf_ctl_key_t *ctlk;
     int byte_write = 0;
 
-    if (length < sizeof(tf_ctl_t))
+    if (WRITE_SWITCH == WRITE_RULE)
     {
-        DBG_WARN("Receives incomplete instruction");
-        return byte_write;
+
+        if (length < sizeof(tf_ctl_rule_t))
+        {
+            DBG_WARN("Receives incomplete instruction");
+            return byte_write;
+        }
+
+        /* Transfer user-space data to kernel-space buffer */
+        copy_from_user(user_buffer, buffer, sizeof(tf_ctl_rule_t));
+
+        ctlp = (tf_ctl_rule_t *)user_buffer;
+        switch (ctlp->mode)
+        {
+        case MFW_ADD_RULE:
+            rule_add(&ctlp->rule);
+            break;
+        case MFW_REMOVE_RULE:
+            rule_del(&ctlp->rule);
+            break;
+        default:
+            DBG_WARN("Received an unknown command");
+        }
+
+        return sizeof(tf_ctl_rule_t);
+    }
+    else if(WRITE_SWITCH == WRITE_KEY){
+        if (length < sizeof(tf_ctl_key_t))
+        {
+            DBG_WARN("Receives incomplete instruction");
+            return byte_write;
+        }
+
+        /* Transfer user-space data to kernel-space buffer */
+        copy_from_user(user_buffer, buffer, sizeof(tf_ctl_key_t));
+
+        ctlk = (tf_ctl_key_t *)user_buffer;
+        switch (ctlk->mode)
+        {
+        case MFW_ADD_KEY:
+            key_add(&ctlk->key);
+            break;
+        case MFW_REMOVE_KEY:
+            key_del(&ctlk->key);
+            break;
+        default:
+            DBG_WARN("Received an unknown command");
+        }
+
+        return sizeof(tf_ctl_key_t);
     }
 
-    /* Transfer user-space data to kernel-space buffer */
-    copy_from_user(user_buffer, buffer, sizeof(tf_ctl_t));
+    return -1;
+}
 
-    ctlp = (tf_ctl_t *)user_buffer;
-    switch (ctlp->mode)
+static long tfdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+    switch (cmd)
     {
-    case MFW_ADD:
-        rule_add(&ctlp->rule);
-        break;
-    case MFW_REMOVE:
-        rule_del(&ctlp->rule);
-        break;
+    case RD_GEN_TABLE:
+        PRINT_SWITCH = PRINT_RULE;
+        return 0;
+    case RD_KEY_TABLE:
+        PRINT_SWITCH = PRINT_KEY;
+        return 0;
+    case WR_GEN_TABLE:
+        WRITE_SWITCH = WRITE_RULE;
+        return 0;
+    case WR_KEY_TABLE:
+        WRITE_SWITCH = WRITE_KEY;
+        return 0;
     default:
-        DBG_WARN("Received an unknown command");
+        return -1;
     }
-
-    return sizeof(tf_ctl_t);
 }
 
 static int __init nf_traffic_filter_init(void)
@@ -372,14 +532,15 @@ static int __init nf_traffic_filter_init(void)
     int ret;
     /* Initialize static global variables */
     Device_open = 0;
-    user_buffer = (char *)kzalloc(sizeof(tf_ctl_t), GFP_KERNEL);
+    user_buffer = (char *)kzalloc(sizeof(tf_ctl_rule_t), GFP_KERNEL);
     if (user_buffer == NULL)
     {
-        DBG_ERR("MiniFirewall: Fails to start due to out of memory");
+        DBG_ERR("traffic filter: Fails to start due to out of memory");
         return -ENOMEM;
     }
     INIT_LIST_HEAD(&In_lhead);
     INIT_LIST_HEAD(&Out_lhead);
+    INIT_LIST_HEAD(&key_lhead);
 
     /* Register character device */
     ret = register_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME, &dev_fops);
@@ -404,6 +565,8 @@ static void __exit nf_traffic_filter_exit(void)
 {
     struct rule_node *nodep;
     struct rule_node *ntmp;
+    struct key_node *knodep;
+    struct key_node *ktmp;
 
     kfree(user_buffer);
 
@@ -418,6 +581,12 @@ static void __exit nf_traffic_filter_exit(void)
         list_del(&nodep->list);
         DBG_INFO("Deleted outbound rule %p", nodep);
         kfree(nodep);
+    }
+    list_for_each_entry_safe(knodep, ktmp, &key_lhead, list)
+    {
+        list_del(&knodep->list);
+        DBG_INFO("Deleted key %s", knodep->key.key);
+        kfree(knodep);
     }
 
     unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);

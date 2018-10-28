@@ -72,12 +72,11 @@
 #define EQUAL_NET_ADDR(ip1, ip2, mask) (((ip1 ^ ip2) & mask) == 0)
 
 //filter support
-#define MOD_SUPPORT_LOCAL_OUT
-#define MOD_SUPPORT_LOCAL_IN
-#define DBG_HEX_DUMP
-#define MOD_SUPPORT_TCP
-#define MOD_SUPPORT_UDP
-#define MOD_SUPPORT_MAC
+#define MAX_KEY_LEN 64 
+#define PRINT_RULE 44
+#define PRINT_KEY 55
+#define WRITE_RULE 66
+#define WRITE_KEY 77
 
 /**************************************************************
  *                                                            *
@@ -86,6 +85,7 @@
  **************************************************************/
 typedef struct local_rule{
     uint8_t  in;
+    uint16_t rule_no;
     uint32_t src_ip;
     uint32_t src_mask;
     uint32_t dst_ip;
@@ -96,19 +96,32 @@ typedef struct local_rule{
 
 } local_rule_t;
 
+typedef struct tf_key{
+    uint32_t key_id;
+    unsigned char key[MAX_KEY_LEN]; 
+} tf_key_t;
+
 /* Mode of an instruction */
 typedef enum ops_mode {
 	MFW_NONE = 0,
-	MFW_ADD = 1,
-	MFW_REMOVE = 2,
-	MFW_VIEW = 3
+	MFW_ADD_RULE = 1,
+    MFW_ADD_KEY = 2,
+	MFW_REMOVE_RULE = 3,
+    MFW_REMOVE_KEY = 4,
+	MFW_VIEW_RULE = 5,
+    MFW_VIEW_KEYS =6
 } ops_mode_t;
 
 /* Control instruction */
-typedef struct tf_ctl {
+typedef struct tf_ctl_rule {
 	ops_mode_t mode;
 	local_rule_t rule;
-} tf_ctl_t;
+} tf_ctl_rule_t;
+
+typedef struct tf_ctl_key {
+    ops_mode_t mode;
+    tf_key_t key;
+} tf_ctl_key_t;
 
 /**************************************************************
  *                                                            *
@@ -124,6 +137,7 @@ static int tfdev_open(struct inode *inode, struct file *file);
 static int tfdev_release(struct inode *inode, struct file *file);
 static ssize_t tfdev_read(struct file *file, char *buffer, size_t length, loff_t *offset);
 static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length, loff_t *offset);
+static long tfdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
 /**************************************************************
  *                                                            *
@@ -145,8 +159,10 @@ static struct nf_hook_ops local_in_filter = {
 };
 
 struct file_operations dev_fops = {
+    .owner = THIS_MODULE,
 	.read = tfdev_read,
 	.write = tfdev_write,
+    .unlocked_ioctl = tfdev_ioctl,
 	.open = tfdev_open,
 	.release = tfdev_release
 };
