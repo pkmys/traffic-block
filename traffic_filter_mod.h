@@ -138,6 +138,8 @@ static int tfdev_release(struct inode *inode, struct file *file);
 static ssize_t tfdev_read(struct file *file, char *buffer, size_t length, loff_t *offset);
 static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length, loff_t *offset);
 static long tfdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+static void key_del(tf_key_t *key);
+static void key_add(tf_key_t *key);
 
 /**************************************************************
  *                                                            *
