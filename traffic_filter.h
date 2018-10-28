@@ -4,7 +4,7 @@
 #include <inttypes.h>
 
 
-#define DEVICE_INTF_NAME "tfdev"
+#define DEVICE_INTF_NAME "/dev/tfdev"
 #define DEVICE_MAJOR_NUM 121
 #define MAX_KEY_LEN 64
 

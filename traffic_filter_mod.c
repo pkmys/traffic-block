@@ -15,6 +15,7 @@
  **************************************************************/
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/device.h>
 #include <linux/init.h>
 #include <linux/ip.h>
 #include <linux/tcp.h>
@@ -37,6 +38,7 @@
 #define MOD_SUPPORT "packet filter"
 #define DEVICE_INTF_NAME "tfdev"
 #define DEVICE_MAJOR_NUM 121
+#define CLASS_NAME "tfdev"
 
 #define RD_GEN_TABLE _IOW(DEVICE_MAJOR_NUM, 1, uint32_t *)
 #define RD_KEY_TABLE _IOW(DEVICE_MAJOR_NUM, 2, uint32_t *)
@@ -50,12 +52,15 @@
  **************************************************************/
 uint8_t debug_level = 0xFF;
 
-struct list_head In_lhead;  /* Head of inbound-rule list */
-struct list_head Out_lhead; /* Head of outbound-rule list */
-struct list_head key_lhead;
+static struct list_head In_lhead;  /* Head of inbound-rule list */
+static struct list_head Out_lhead; /* Head of outbound-rule list */
+static struct list_head key_lhead;
 
 static int Device_open;   /* Opening counter of a device file */
 static char *user_buffer; /* A buffer for receving data from a user space */
+
+static struct class*  tfdev_class  = NULL; // The device-driver class struct pointer
+static struct device* tfdev_device = NULL; // The device-driver device struct pointer 
 
 static int PRINT_SWITCH;
 static int WRITE_SWITCH;
@@ -126,7 +131,7 @@ void hex_dump_skb(struct sk_buff *skb)
     } while (0);
 }
 
-unsigned int HOOK_FN(local_out_hook)
+static unsigned int HOOK_FN(local_out_hook)
 {
 
     struct iphdr *iphr = NULL;
@@ -180,7 +185,7 @@ unsigned int HOOK_FN(local_out_hook)
     return NF_ACCEPT;
 }
 
-unsigned int HOOK_FN(local_in_hook)
+static unsigned int HOOK_FN(local_in_hook)
 {
 
     struct iphdr *iphr = NULL;
@@ -549,11 +554,24 @@ static int __init nf_traffic_filter_init(void)
         DBG_ERR("Fails to start due to device register");
         return -ENODATA;
     }
-    PRINT_INFO("Char device %s is registered with major number %d",
-               DEVICE_INTF_NAME, DEVICE_MAJOR_NUM);
-    PRINT_INFO("To communicate to the device, use: mknod %s c %d 0",
-               DEVICE_INTF_NAME, DEVICE_MAJOR_NUM);
 
+    tfdev_class = class_create(THIS_MODULE, CLASS_NAME);
+   	if (IS_ERR(tfdev_class)){                // Check for error and clean up if there is
+    		unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
+        	DBG_ERR( "failed to register device class");
+		    return PTR_ERR(tfdev_class);     // Correct way to return an error on a pointer
+   	}
+
+   	DBG_DEBUG("device class registered correctly");
+
+   	tfdev_device = device_create(tfdev_class, NULL, MKDEV(DEVICE_MAJOR_NUM, 0), NULL, DEVICE_INTF_NAME);
+   	if (IS_ERR(tfdev_device)){                    // Clean up if there is an error
+        	class_destroy(tfdev_class);           
+        	unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
+        	DBG_ERR( "failed to create device");
+	    	return PTR_ERR(tfdev_device);
+   	}
+       
     /* Register netfilter inbound and outbound hooks */
     nf_register_hook(&local_out_filter);
     nf_register_hook(&local_in_filter);
@@ -589,6 +607,9 @@ static void __exit nf_traffic_filter_exit(void)
         kfree(knodep);
     }
 
+    device_destroy(tfdev_class, MKDEV(DEVICE_MAJOR_NUM, 0));
+    class_unregister(tfdev_class);
+    class_destroy(tfdev_class);  
     unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
     PRINT_INFO("Device %s is unregistered", DEVICE_INTF_NAME);
     nf_unregister_hook(&local_out_filter);

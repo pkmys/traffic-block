@@ -7,6 +7,7 @@
 #include <limits.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include "traffic_filter.h"
 
@@ -38,7 +39,7 @@ static void print_usage(void)
 		"   -d --d_ip         <ipaddr>    destination ip address\n"
 		"   -n --d_mask         <mask>    destination mask\n"
 		"   -q --d_port         <port>    destination port\n"
-		"   -c --proto         <proto>    protocol [TCP-6/UDP-17]\n"
+		"   -c --proto         <proto>    protocol [TCP-6/UDP-17/ALL-default<0>]\n"
 		"   -k --add_key     <keyword>    keyword tto block traffic\n"
 		"   -R --view_rule                view rule table\n"
 		"   -K --view_key                 view key table\n"
@@ -68,7 +69,7 @@ static void send_instruction_rule(tf_ctl_rule_t *ctl)
 	fp = open(DEVICE_INTF_NAME, O_WRONLY);
 	if (fp < 0)
 	{
-		printf("An device file (%s) cannot be opened.\n", DEVICE_INTF_NAME);
+		perror("device file cannot be opened.");
 		return;
 	}
 	ioctl(fp, WR_GEN_TABLE, 0);
@@ -87,7 +88,7 @@ static void send_instruction_key(tf_ctl_key_t *ctl)
 	fp = open(DEVICE_INTF_NAME, O_WRONLY);
 	if (fp < 0)
 	{
-		printf("An device file (%s) cannot be opened.\n", DEVICE_INTF_NAME);
+		perror("device file cannot be opened.");
 		return;
 	}
 	ioctl(fp, WR_KEY_TABLE, 0);
@@ -113,8 +114,7 @@ static void view_rules(int mode)
 	fp = open(DEVICE_INTF_NAME, O_RDONLY);
 	if (fp < 0)
 	{
-		printf("An device file (%s) cannot be opened.\n",
-			   DEVICE_INTF_NAME);
+		perror("device file cannot be opened.");
 		return;
 	}
 

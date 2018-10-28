@@ -128,8 +128,8 @@ typedef struct tf_ctl_key {
  *                         PROTOTYPES                         *
  *                                                            *
  **************************************************************/
-unsigned int HOOK_FN(local_out_hook);
-unsigned int HOOK_FN(local_in_hook);
+static unsigned int HOOK_FN(local_out_hook);
+static unsigned int HOOK_FN(local_in_hook);
 void hex_dump_skb(struct sk_buff*);
 static void rule_add(local_rule_t *rule);
 static void rule_del(local_rule_t *rule);
