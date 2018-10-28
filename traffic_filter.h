@@ -39,7 +39,8 @@ typedef enum ops_mode {
 	MFW_REMOVE_RULE = 3,
     MFW_REMOVE_KEY = 4,
 	MFW_VIEW_RULE = 5,
-    MFW_VIEW_KEYS =6
+    MFW_VIEW_KEYS =6,
+    MFW_VIEW_ALL = 7
 } ops_mode_t;
 
 /* Control instruction */
@@ -71,6 +72,8 @@ static struct option long_options[] = {     /* Long option configuration */
                                         {"remove_key",  required_argument,      0,  'X'},
                                         {"view_rule",   no_argument,            0,  'R'},
                                         {"view_key",    no_argument,            0,  'K'},
+                                        {"view_all",    no_argument,            0,  'A'},
+                                        {"version",     no_argument,            0,  'v'},
                                         {"help",        no_argument,            0,  'h'},
                                         {0, 0, 0, 0}
                                     };

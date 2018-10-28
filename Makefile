@@ -6,8 +6,8 @@ obj-m:= ${TARGET}.o
 
 all:
 	make -C ${KERNDIR} M=${PWD}  modules
-	gcc traffic_filter.c -o traffic_filter
+	gcc traffic_filter.c -o tb
 
 clean:
 	make -C ${KERNDIR} M=${PWD}  clean
-	rm -f traffic_filter
+	rm -f tb
