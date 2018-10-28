@@ -21,22 +21,24 @@
  */
 static void print_usage(void)
 {
-	printf("Usage: tf RULE_OPTIONS..\n"
-		   "traffic filter implements an exact match algorithm, where "
-		   "unspecified options are ignored.\n"
-		   "-i --in             input\n"
-		   "-o --out            output\n"
-		   "-s --s_ip IPADDR    source ip address\n"
-		   "-m --s_mask MASK    source mask\n"
-		   "-p --s_port PORT    source port\n"
-		   "-d --d_ip IPADDR    destination ip address\n"
-		   "-n --d_mask MASK    destination mask\n"
-		   "-q --d_port PORT    destination port\n"
-		   "-c --proto PROTO    protocol\n"
-		   "-a --add            add a rule\n"
-		   "-r --remove         remove a rule\n"
-		   "-v --view           view rules\n"
-		   "-h --help           this usage\n");
+	printf("Usage:\n"
+		   "-i --in             	input\n"
+		   "-o --out            	output\n"
+		   "-s --s_ip 	      IPADDR    source ip address\n"
+		   "-m --s_mask 	MASK    source mask\n"
+		   "-p --s_port         PORT    source port\n"
+		   "-d --d_ip 	      IPADDR    destination ip address\n"
+		   "-n --d_mask 	MASK    destination mask\n"
+		   "-q --d_port         PORT    destination port\n"
+		   "-c --proto         PROTO    protocol\n"
+		   "-a --add_rule             	add a rule\n"
+		   "-k --add_key     KEYWORD	keyword tto block traffic\n"
+		   "-R --view_rule 		view rule table\n"
+		   "-K --view_key		view key table\n"
+		   "-x --remove_rule RULE ID	remove rule with rule id\n"
+		   "-X --remove_key   KEY_ID	remove key with keyid\n"
+		   "-v --version		version info\n"
+		   "-h --help           	this usage\n");
 }
 
 /*
@@ -197,7 +199,7 @@ int main(int argc, char *argv[])
 	while (1)
 	{
 		opt_index = 0;
-		opt = getopt_long(argc, argv, "ios:m:p:d:n:q:c:k:ax:X:RKh",
+		opt = getopt_long(argc, argv, "ios:m:p:d:n:q:c:k:ax:X:RKhvV",
 						  long_options, &opt_index);
 		if (opt == -1)
 		{
@@ -301,12 +303,6 @@ int main(int argc, char *argv[])
 			kctl.mode = MFW_ADD_KEY;
 			strcpy(kctl.key.key, optarg);
 			break;
-		case 'r': /* Remove rule */
-			if (ctl.mode != MFW_NONE)
-			{
-				printf("Only one mode can be selected.\n");
-				return -1;
-			}
 			ctl.mode = MFW_REMOVE_RULE;
 			break;
 		case 'R': /* View rules */
@@ -339,6 +335,14 @@ int main(int argc, char *argv[])
 			kctl.mode = MFW_REMOVE_KEY;
 			kctl.key.key_id = (uint16_t)parse_number(optarg, 0, UCHAR_MAX);
 			break;
+		case 'v':
+		case 'V':
+			printf(	"\n<Copyright(c)> 	2018 Pawan Kumar\n"
+				"<Traffic Filter> 	simple program for traffic\n" 
+				"		 	filtering for linux systems\n"
+				"<version> 		0.1.0\n"
+				"<support> 		dns keyword filtering\n\n");
+			return 0;
 		case 'h':
 		case '?':
 		default:

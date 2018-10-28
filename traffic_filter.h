@@ -56,19 +56,22 @@ typedef struct tf_ctl_key {
 
 
 static struct option long_options[] = {     /* Long option configuration */
-                                        {"in",      no_argument,        0,  'i'},
-                                        {"out",     no_argument,        0,  'o'},
-                                        {"s_ip",    required_argument,  0,  's'},
-                                        {"s_mask",  required_argument,  0,  'm'},
-                                        {"s_port",  required_argument,  0,  'p'},
-                                        {"d_ip",    required_argument,  0,  'd'},
-                                        {"d_mask",  required_argument,  0,  'n'},
-                                        {"d_port",  required_argument,  0,  'q'},
-                                        {"proto",   required_argument,  0,  'c'},
-                                        {"add",     no_argument,        0,  'a'},
-                                        {"remove",  no_argument,        0,  'r'},
-                                        {"view",    no_argument,        0,  'v'},
-                                        {"help",    no_argument,        0,  'h'},
+                                        {"in",          no_argument,            0,  'i'},
+                                        {"out",         no_argument,            0,  'o'},
+                                        {"s_ip",        required_argument,      0,  's'},
+                                        {"s_mask",      required_argument,      0,  'm'},
+                                        {"s_port",      required_argument,      0,  'p'},
+                                        {"d_ip",        required_argument,      0,  'd'},
+                                        {"d_mask",      required_argument,      0,  'n'},
+                                        {"d_port",      required_argument,      0,  'q'},
+                                        {"proto",       required_argument,      0,  'c'},
+                                        {"add_key",     required_argument,      0,  'k'},
+                                        {"add_rule",    no_argument,            0,  'a'},
+                                        {"remove_rule", required_argument,      0,  'x'},
+                                        {"remove_key",  required_argument,      0,  'X'},
+                                        {"view_rule",   no_argument,            0,  'R'},
+                                        {"view_key",    no_argument,            0,  'K'},
+                                        {"help",        no_argument,            0,  'h'},
                                         {0, 0, 0, 0}
                                     };
 
