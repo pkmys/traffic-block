@@ -140,16 +140,24 @@ static void view_rules(int mode)
 			printf("| %-3d ", rule->rule_no);
 			printf("| %-3s ", rule->in ? "In" : "Out");
 			addr.s_addr = rule->src_ip;
-			printf("| %-15s  ", inet_ntoa(addr));
+			if (rule->src_ip == 0) printf("| %-15s  ", "       -");
+			else printf("| %-15s  ", inet_ntoa(addr));
 			addr.s_addr = rule->src_mask;
-			printf("| %-15s  ", inet_ntoa(addr));
-			printf("| %-5d  ", ntohs(rule->src_port));
+			if(rule->src_mask == 0) printf("| %-15s  ", "       -");
+			else printf("| %-15s  ", inet_ntoa(addr));
+			if(rule->src_port == 0) printf("| %-5s  ","  -");
+			else printf("| %-5d  ", ntohs(rule->src_port));
 			addr.s_addr = rule->dst_ip;
-			printf("| %-15s  ", inet_ntoa(addr));
+			if(rule->dst_ip == 0) printf("| %-15s  ", "       -");
+			else printf("| %-15s  ", inet_ntoa(addr));
 			addr.s_addr = rule->dst_mask;
-			printf("| %-15s  ", inet_ntoa(addr));
-			printf("| %-5d  ", ntohs(rule->dst_port));
-			printf("|  %-3d  |\n", rule->protocol);
+			if(rule->dst_mask == 0) printf("| %-15s  ","       -");
+			else printf("| %-15s  ", inet_ntoa(addr));
+			if(rule->dst_port == 0) printf("| %-5s  ","  -");
+			else printf("| %-5d  ", ntohs(rule->dst_port));
+			if(rule->protocol == IPPROTO_TCP) printf("|  TCP  |\n");
+			else if(rule->protocol == IPPROTO_UDP) printf("|  UDP  |\n");
+			else printf("|   -   |\n");
 		}
 		printf("+-----+-----+------------------+------------------+--------+"
 			   "------------------+------------------+--------+-------+\n\n");
