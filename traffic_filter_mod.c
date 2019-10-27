@@ -14,6 +14,7 @@
  *                                                            *
  **************************************************************/
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/init.h>
@@ -573,8 +574,14 @@ static int __init nf_traffic_filter_init(void)
    	}
        
     /* Register netfilter inbound and outbound hooks */
-    nf_register_hook(&local_out_filter);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,13,0)
+    nf_register_net_hook(&init_net, &local_in_filter);
+    nf_register_net_hook(&init_net, &local_out_filter);
+
+#else
     nf_register_hook(&local_in_filter);
+    nf_register_hook(&local_out_filter);
+#endif
     PRINT_INFO("Module initialize OK");
     return 0;
 }
@@ -612,8 +619,13 @@ static void __exit nf_traffic_filter_exit(void)
     class_destroy(tfdev_class);  
     unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
     DBG_INFO("Device %s is unregistered", DEVICE_INTF_NAME);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,13,0)
+    nf_unregister_net_hook(&init_net, &local_out_filter);
+    nf_unregister_net_hook(&init_net, &local_in_filter);
+#else
     nf_unregister_hook(&local_out_filter);
     nf_unregister_hook(&local_in_filter);
+#endif
     PRINT_INFO("Module uninitialize OK");
 }
 
