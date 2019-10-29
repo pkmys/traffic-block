@@ -51,7 +51,7 @@
  *                           GLOBAL                           *
  *                                                            *
  **************************************************************/
-uint8_t debug_level = 0x03;
+uint8_t debug_level = 0xFF;
 
 static struct list_head In_lhead;  /* Head of inbound-rule list */
 static struct list_head Out_lhead; /* Head of outbound-rule list */
@@ -60,8 +60,8 @@ static struct list_head key_lhead;
 static int Device_open;   /* Opening counter of a device file */
 static char *user_buffer; /* A buffer for receving data from a user space */
 
-static struct class*  tfdev_class  = NULL; // The device-driver class struct pointer
-static struct device* tfdev_device = NULL; // The device-driver device struct pointer 
+static struct class *tfdev_class = NULL;   // The device-driver class struct pointer
+static struct device *tfdev_device = NULL; // The device-driver device struct pointer
 
 static int PRINT_SWITCH;
 static int WRITE_SWITCH;
@@ -145,42 +145,50 @@ static unsigned int HOOK_FN(local_out_hook)
     unsigned char dns_domain[DOMAIN_NAME_MAX_LEN];
     char *ret;
     struct key_node *node = NULL;
-    struct list_head *lheadp = NULL;
+    struct list_head *lheadp = &key_lhead;
     struct list_head *lp = NULL;
 
-    lheadp = &key_lhead;
-
-    if (!skb)
+    if (!skb || lheadp->next == lheadp)
         return NF_ACCEPT;
 
     machr = eth_hdr(skb);
     iphr = ip_hdr(skb);
-    saddr = ntohl(iphr->saddr);
-    daddr = ntohl(iphr->daddr);
 
-    if (iphr->protocol == IPPROTO_TCP)
+    if (iphr)
     {
-        tcphr = tcp_hdr(skb);
-        sport = ntohs(tcphr->source);
-        dport = ntohs(tcphr->dest);
-        payload = (unsigned char *)((unsigned char *)tcphr + (tcphr->doff * 4));
-    }
-    else if (iphr->protocol == IPPROTO_UDP)
-    {
-        udphr = (struct udphdr *)skb_transport_header(skb);
-        sport = ntohs(udphr->source);
-        dport = ntohs(udphr->dest);
-        payload = (unsigned char *)((unsigned char *)udphr + sizeof(*udphr));
+        saddr = ntohl(iphr->saddr);
+        daddr = ntohl(iphr->daddr);
+        switch (iphr->protocol)
+        {
+        case IPPROTO_TCP:
+            tcphr = tcp_hdr(skb);
+            sport = ntohs(tcphr->source);
+            dport = ntohs(tcphr->dest);
+            payload = (unsigned char *)((unsigned char *)tcphr + (tcphr->doff * 4));
+            break;
 
-        if( dport == DNS_PORT ){
-            dns_get_domain_name((struct dnshdr *)payload, dns_domain);
-            for (lp = lheadp; lp->next != lheadp; lp = lp->next)
+        case IPPROTO_UDP:
+            udphr = (struct udphdr *)skb_transport_header(skb);
+            sport = ntohs(udphr->source);
+            dport = ntohs(udphr->dest);
+            payload = (unsigned char *)((unsigned char *)udphr + sizeof(*udphr));
+
+            if (dport == DNS_PORT)
             {
-                node = list_entry(lp->next, struct key_node, list);
-                ret = strstr(dns_domain, node->key.key);
-                if(ret != NULL)
-                    return NF_DROP;
+                dns_get_domain_name((struct dnshdr *)payload, dns_domain);
+                for (lp = lheadp; lp->next != lheadp; lp = lp->next)
+                {
+                    node = list_entry(lp->next, struct key_node, list);
+                    ret = strstr(dns_domain, node->key.key);
+                    if (ret != NULL)
+                        DBG_DEBUG("[BLOCKED] DNS: %s", dns_domain);
+                        return NF_DROP;
+                }
             }
+            break;
+
+        default:
+            break;
         }
     }
     return NF_ACCEPT;
@@ -196,28 +204,37 @@ static unsigned int HOOK_FN(local_in_hook)
     __u32 saddr, daddr;
     __u16 sport, dport;
     unsigned char *payload = NULL; /* data as payload */
+    struct list_head *lheadp = &key_lhead;
 
-    if (!skb)
+    if (!skb || lheadp->next == lheadp)
         return NF_ACCEPT;
 
     machr = eth_hdr(skb);
     iphr = ip_hdr(skb);
-    saddr = ntohl(iphr->saddr);
-    daddr = ntohl(iphr->daddr);
-    if (iphr->protocol == IPPROTO_TCP)
-    {
-        tcphr = tcp_hdr(skb);
-        sport = ntohs(tcphr->source);
-        dport = ntohs(tcphr->dest);
 
-        payload = (unsigned char *)((unsigned char *)tcphr + (tcphr->doff * 4));
-    }
-    else if (iphr->protocol == IPPROTO_UDP)
+    if (iphr)
     {
-        udphr = (struct udphdr *)skb_transport_header(skb);
-        sport = ntohs(udphr->source);
-        dport = ntohs(udphr->dest);
-        payload = (unsigned char *)((unsigned char *)udphr + sizeof(*udphr));
+        saddr = ntohl(iphr->saddr);
+        daddr = ntohl(iphr->daddr);
+        switch (iphr->protocol)
+        {
+        case IPPROTO_TCP:
+            tcphr = tcp_hdr(skb);
+            sport = ntohs(tcphr->source);
+            dport = ntohs(tcphr->dest);
+
+            payload = (unsigned char *)((unsigned char *)tcphr + (tcphr->doff * 4));
+            break;
+        case IPPROTO_UDP:
+            udphr = (struct udphdr *)skb_transport_header(skb);
+            sport = ntohs(udphr->source);
+            dport = ntohs(udphr->dest);
+            payload = (unsigned char *)((unsigned char *)udphr + sizeof(*udphr));
+            break;
+
+        default:
+            break;
+        }
     }
     return NF_ACCEPT;
 }
@@ -442,7 +459,7 @@ static void key_add(tf_key_t *key)
     nodep->key = *key;
 
     list_add_tail(&nodep->list, &key_lhead);
-    PRINT_INFO("Added key_id:%d key:%s",key_id, key->key);
+    PRINT_INFO("Added key_id:%d key:%s", key_id, key->key);
     key_id++;
 }
 
@@ -483,7 +500,8 @@ static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length,
 
         return sizeof(tf_ctl_rule_t);
     }
-    else if(WRITE_SWITCH == WRITE_KEY){
+    else if (WRITE_SWITCH == WRITE_KEY)
+    {
         if (length < sizeof(tf_ctl_key_t))
         {
             DBG_WARN("Receives incomplete instruction");
@@ -544,9 +562,6 @@ static int __init nf_traffic_filter_init(void)
         DBG_ERR("traffic filter: Fails to start due to out of memory");
         return -ENOMEM;
     }
-    INIT_LIST_HEAD(&In_lhead);
-    INIT_LIST_HEAD(&Out_lhead);
-    INIT_LIST_HEAD(&key_lhead);
 
     /* Register character device */
     ret = register_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME, &dev_fops);
@@ -557,31 +572,35 @@ static int __init nf_traffic_filter_init(void)
     }
 
     tfdev_class = class_create(THIS_MODULE, CLASS_NAME);
-   	if (IS_ERR(tfdev_class)){                // Check for error and clean up if there is
-    		unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
-        	DBG_ERR( "failed to register device class");
-		    return PTR_ERR(tfdev_class);     // Correct way to return an error on a pointer
-   	}
+    if (IS_ERR(tfdev_class))
+    { // Check for error and clean up if there is
+        unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
+        DBG_ERR("failed to register device class");
+        return PTR_ERR(tfdev_class); // Correct way to return an error on a pointer
+    }
 
-   	DBG_DEBUG("device class registered correctly");
+    DBG_DEBUG("device class registered correctly");
 
-   	tfdev_device = device_create(tfdev_class, NULL, MKDEV(DEVICE_MAJOR_NUM, 0), NULL, DEVICE_INTF_NAME);
-   	if (IS_ERR(tfdev_device)){                    // Clean up if there is an error
-        	class_destroy(tfdev_class);           
-        	unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
-        	DBG_ERR( "failed to create device");
-	    	return PTR_ERR(tfdev_device);
-   	}
-       
+    tfdev_device = device_create(tfdev_class, NULL, MKDEV(DEVICE_MAJOR_NUM, 0), NULL, DEVICE_INTF_NAME);
+    if (IS_ERR(tfdev_device))
+    { // Clean up if there is an error
+        class_destroy(tfdev_class);
+        unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
+        DBG_ERR("failed to create device");
+        return PTR_ERR(tfdev_device);
+    }
+
     /* Register netfilter inbound and outbound hooks */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,13,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
     nf_register_net_hook(&init_net, &local_in_filter);
     nf_register_net_hook(&init_net, &local_out_filter);
-
 #else
     nf_register_hook(&local_in_filter);
     nf_register_hook(&local_out_filter);
 #endif
+    INIT_LIST_HEAD(&In_lhead);
+    INIT_LIST_HEAD(&Out_lhead);
+    INIT_LIST_HEAD(&key_lhead);
     PRINT_INFO("Module initialize OK");
     return 0;
 }
@@ -616,10 +635,10 @@ static void __exit nf_traffic_filter_exit(void)
 
     device_destroy(tfdev_class, MKDEV(DEVICE_MAJOR_NUM, 0));
     class_unregister(tfdev_class);
-    class_destroy(tfdev_class);  
+    class_destroy(tfdev_class);
     unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
     DBG_INFO("Device %s is unregistered", DEVICE_INTF_NAME);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,13,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
     nf_unregister_net_hook(&init_net, &local_out_filter);
     nf_unregister_net_hook(&init_net, &local_in_filter);
 #else
