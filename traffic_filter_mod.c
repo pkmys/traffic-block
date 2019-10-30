@@ -487,7 +487,7 @@ static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length,
         default:
             DBG_WARN("Received an unknown command");
         }
-
+	kfree(user_buffer);
         return sizeof(tf_ctl_rule_t);
     }
     else if (WRITE_SWITCH == WRITE_KEY)
@@ -520,7 +520,7 @@ static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length,
         default:
             DBG_WARN("Received an unknown command");
         }
-
+	kfree(user_buffer);
         return sizeof(tf_ctl_key_t);
     }
 

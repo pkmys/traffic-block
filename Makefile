@@ -1,11 +1,11 @@
-TARGET:= traffic_filter_mod
+TARGET:= traffic_filter
 PWD:= $(shell pwd)
 KERNDIR:= "/lib/modules/$(shell uname -r)/build/"
 DNS:= dns
 UTIL:= util
 
 obj-m:= ${TARGET}.o
-${TARGET}-objs:= ${DNS}.o ${UTIL}.o
+${TARGET}-objs:= ${TARGET}_mod.o ${DNS}.o ${UTIL}.o
 
 all:
 	make -C ${KERNDIR} M=${PWD}  modules
