@@ -28,6 +28,7 @@
 
 #include "traffic_filter_mod.h"
 #include "dns.h"
+#include "util.h"
 
 /**************************************************************
  *                                                            *
@@ -40,6 +41,7 @@
 #define DEVICE_INTF_NAME "tfdev"
 #define DEVICE_MAJOR_NUM 121
 #define CLASS_NAME "tfdev"
+#define ENABLE_SKB_DUMP
 
 #define RD_GEN_TABLE _IOW(DEVICE_MAJOR_NUM, 1, uint32_t *)
 #define RD_KEY_TABLE _IOW(DEVICE_MAJOR_NUM, 2, uint32_t *)
@@ -58,6 +60,7 @@ static struct list_head Out_lhead; /* Head of outbound-rule list */
 static struct list_head key_lhead;
 
 static int Device_open; /* Opening counter of a device file */
+static id_store_t *global_keystore; /* global keystore */
 
 static struct class *tfdev_class = NULL;   // The device-driver class struct pointer
 static struct device *tfdev_device = NULL; // The device-driver device struct pointer
@@ -129,7 +132,9 @@ static unsigned int HOOK_FN(local_out_hook)
     struct key_node *node = NULL;
     struct list_head *lheadp = &key_lhead;
     struct list_head *lp = NULL;
-
+#ifdef ENABLE_SKB_DUMP
+    util_dump_hex(skb_mac_header(skb), skb->len);
+#endif
     if (!skb || lheadp->next == lheadp)
         return NF_ACCEPT;
 
@@ -343,14 +348,13 @@ static ssize_t tfdev_read(struct file *file, char *buffer, size_t length, loff_t
 static void rule_add(local_rule_t *rule)
 {
     struct rule_node *nodep;
-    static uid16_t rule_no = 1;
     nodep = (struct rule_node *)kmalloc(sizeof(struct rule_node), GFP_KERNEL);
     if (nodep == NULL)
     {
         DBG_ERR("Cannot add a new rule due to insufficient memory");
         return;
     }
-    rule->rule_no = rule_no;
+    rule->rule_no = util_id_allocate(global_keystore->__proto_bit_array);
     nodep->rule = *rule;
 
     if (nodep->rule.in == 1)
@@ -371,7 +375,6 @@ static void rule_add(local_rule_t *rule)
                    NIP4(nodep->rule.src_ip), NIP4(nodep->rule.src_mask), nodep->rule.src_port,
                    NIP4(nodep->rule.dst_ip), NIP4(nodep->rule.dst_mask), nodep->rule.dst_port);
     }
-    rule_no++;
 }
 
 static void rule_del(local_rule_t *rule)
@@ -391,6 +394,7 @@ static void rule_del(local_rule_t *rule)
         if (node->rule.rule_no == rule->rule_no)
         {
             list_del(lp->next);
+            util_id_dallocate(node->rule.rule_no, global_keystore->__proto_bit_array);
             kfree(node);
             if (rule->in == 1)
                 PRINT_INFO("IN RULE DELETE:");
@@ -423,6 +427,7 @@ static void key_del(tf_key_t *key)
         {
             list_del(lp->next);
             PRINT_INFO("Deleted key_id:%d  key:%s", key->key_id, node->key.key);
+            util_id_dallocate(node->key.key_id, global_keystore->__keystore_bit_array);
             kfree(node);
             break;
         }
@@ -432,19 +437,17 @@ static void key_del(tf_key_t *key)
 static void key_add(tf_key_t *key)
 {
     struct key_node *nodep;
-    static uint32_t key_id = 1;
     nodep = (struct key_node *)kmalloc(sizeof(struct key_node), GFP_KERNEL);
     if (nodep == NULL)
     {
         DBG_ERR("Cannot add a new key due to insufficient memory");
         return;
     }
-    key->key_id = key_id;
+    key->key_id = util_id_allocate(global_keystore->__keystore_bit_array);
     nodep->key = *key;
 
     list_add_tail(&nodep->list, &key_lhead);
-    PRINT_INFO("Added key_id:%d key:%s", key_id, key->key);
-    key_id++;
+    PRINT_INFO("Added key_id:%d key:%s", key->key_id, key->key);
 }
 
 /*
@@ -555,6 +558,12 @@ static int __init nf_traffic_filter_init(void)
     int ret;
     /* Initialize static global variables */
     Device_open = 0;
+    global_keystore = (id_store_t *)kmalloc(sizeof(id_store_t), GFP_KERNEL);
+    if (global_keystore == NULL)
+    {
+        DBG_ERR("Keystore alloc failed insufficient memory");
+        return -ENOMEM;
+    }
 
     /* Register character device */
     ret = register_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME, &dev_fops);
@@ -568,18 +577,18 @@ static int __init nf_traffic_filter_init(void)
     if (IS_ERR(tfdev_class))
     { // Check for error and clean up if there is
         unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
-        DBG_ERR("failed to register device class");
+        DBG_ERR("Failed to register device class");
         return PTR_ERR(tfdev_class); // Correct way to return an error on a pointer
     }
 
-    DBG_DEBUG("device class registered correctly");
+    DBG_DEBUG("Device class registered correctly");
 
     tfdev_device = device_create(tfdev_class, NULL, MKDEV(DEVICE_MAJOR_NUM, 0), NULL, DEVICE_INTF_NAME);
     if (IS_ERR(tfdev_device))
     { // Clean up if there is an error
         class_destroy(tfdev_class);
         unregister_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME);
-        DBG_ERR("failed to create device");
+        DBG_ERR("Failed to create device");
         return PTR_ERR(tfdev_device);
     }
 
@@ -636,6 +645,7 @@ static void __exit nf_traffic_filter_exit(void)
     nf_unregister_hook(&local_out_filter);
     nf_unregister_hook(&local_in_filter);
 #endif
+    kfree(global_keystore);
     PRINT_INFO("Module uninitialize OK");
 }
 

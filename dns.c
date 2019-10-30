@@ -9,6 +9,7 @@
  * @copyright: Copyright (C) 2018
  */
 
+#include <linux/string.h>
 #include "dns.h"
 
 static inline unsigned char *dns_get_payload(struct dnshdr *dnshr);
@@ -25,6 +26,7 @@ void dns_get_domain_name(struct dnshdr *dnshr, unsigned char *domain)
     u16 i, host_len = 0;
 
     dns_pload++;
+    memset(domain, 0, DOMAIN_NAME_MAX_LEN);
     while (next != 0 && host_len < DOMAIN_NAME_MAX_LEN - 1)
     {
         for (i = 0; i < next; i++, host_len++)

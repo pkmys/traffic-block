@@ -85,22 +85,22 @@
  **************************************************************/
 typedef struct local_rule
 {
-    uint8_t in;
-    uint16_t rule_no;
-    uint32_t src_ip;
-    uint32_t src_mask;
-    uint32_t dst_ip;
-    uint32_t dst_mask;
-    uint16_t src_port;
-    uint16_t dst_port;
-    uint8_t protocol;
+    __UINT8_TYPE__ in;
+    __UINT16_TYPE__ rule_no;
+    __UINT32_TYPE__ src_ip;
+    __UINT32_TYPE__ src_mask;
+    __UINT32_TYPE__ dst_ip;
+    __UINT32_TYPE__ dst_mask;
+    __UINT16_TYPE__ src_port;
+    __UINT16_TYPE__ dst_port;
+    __UINT8_TYPE__ protocol;
 
 } local_rule_t;
 
 typedef struct tf_key
 {
-    uint32_t key_id;
-    unsigned char key[MAX_KEY_LEN];
+    __UINT32_TYPE__ key_id;
+    __UINT8_TYPE__ key[MAX_KEY_LEN];
 } tf_key_t;
 
 /* Mode of an instruction */
