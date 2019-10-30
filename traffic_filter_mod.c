@@ -163,8 +163,10 @@ static unsigned int HOOK_FN(local_out_hook)
                     node = list_entry(lp->next, struct key_node, list);
                     ret = strstr(dns_domain, node->key.key);
                     if (ret != NULL)
+                    {
                         DBG_DEBUG("[BLOCKED] DNS: %s", dns_domain);
-                    return NF_DROP;
+                        return NF_DROP;
+                    }
                 }
             }
             break;

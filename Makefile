@@ -22,3 +22,5 @@ clean:
 	make -C ${KERNDIR} M=${PWD}  clean
 	rm -f *.priv *.der
 	rm -f tb
+
+rebuild: clean all

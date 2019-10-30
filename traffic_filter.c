@@ -128,39 +128,39 @@ static void view_rules(int mode)
 		}
 		ioctl(fp, RD_GEN_TABLE, 0);
 		/* Each rule is printed line-by-line. */
-		printf("\n+-----+-----+------------------+------------------+--------+"
-			   "------------------+------------------+--------+-------+\n");
-		printf("| Id  | I/O |  S_Addr          | S_Mask           | S_Port |"
-			   " D_Addr           | D_Mask           | D_Port | Proto |\n");
-		printf("+-----+-----+------------------+------------------+--------+"
-			   "------------------+------------------+--------+-------+\n");
+		printf("\n============================================================"
+			   "=======================================================\n");
+		printf("  Id    I/O    S_Addr            S_Mask             S_Port  "
+			   " D_Addr             D_Mask             D_Port   Proto  \n");
+		printf("============================================================"
+			   "=======================================================\n");
 		while ((byte_count = read(fp, buffer, sizeof(local_rule_t))) > 0)
 		{
 			rule = (local_rule_t *)buffer;
-			printf("| %-3d ", rule->rule_no);
-			printf("| %-3s ", rule->in ? "In" : "Out");
+			printf("  %-3d ", rule->rule_no);
+			printf("  %-3s ", rule->in ? "In" : "Out");
 			addr.s_addr = rule->src_ip;
-			if (rule->src_ip == 0) printf("| %-15s  ", "       -");
-			else printf("| %-15s  ", inet_ntoa(addr));
+			if (rule->src_ip == 0) printf("  %-15s  ", "       -");
+			else printf("  %-15s  ", inet_ntoa(addr));
 			addr.s_addr = rule->src_mask;
-			if(rule->src_mask == 0) printf("| %-15s  ", "       -");
-			else printf("| %-15s  ", inet_ntoa(addr));
-			if(rule->src_port == 0) printf("| %-5s  ","  -");
-			else printf("| %-5d  ", ntohs(rule->src_port));
+			if(rule->src_mask == 0) printf("  %-15s  ", "       -");
+			else printf("  %-15s  ", inet_ntoa(addr));
+			if(rule->src_port == 0) printf("  %-5s  ","  -");
+			else printf("  %-5d  ", ntohs(rule->src_port));
 			addr.s_addr = rule->dst_ip;
-			if(rule->dst_ip == 0) printf("| %-15s  ", "       -");
-			else printf("| %-15s  ", inet_ntoa(addr));
+			if(rule->dst_ip == 0) printf("  %-15s  ", "       -");
+			else printf("  %-15s  ", inet_ntoa(addr));
 			addr.s_addr = rule->dst_mask;
-			if(rule->dst_mask == 0) printf("| %-15s  ","       -");
-			else printf("| %-15s  ", inet_ntoa(addr));
-			if(rule->dst_port == 0) printf("| %-5s  ","  -");
-			else printf("| %-5d  ", ntohs(rule->dst_port));
-			if(rule->protocol == IPPROTO_TCP) printf("|  TCP  |\n");
-			else if(rule->protocol == IPPROTO_UDP) printf("|  UDP  |\n");
-			else printf("|   -   |\n");
+			if(rule->dst_mask == 0) printf("  %-15s  ","       -");
+			else printf("  %-15s  ", inet_ntoa(addr));
+			if(rule->dst_port == 0) printf("  %-5s  ","  -");
+			else printf("  %-5d  ", ntohs(rule->dst_port));
+			if(rule->protocol == IPPROTO_TCP) printf("   TCP   \n");
+			else if(rule->protocol == IPPROTO_UDP) printf("   UDP   \n");
+			else printf("    -    \n");
 		}
-		printf("+-----+-----+------------------+------------------+--------+"
-			   "------------------+------------------+--------+-------+\n\n");
+		printf("============================================================"
+			   "=======================================================\n\n");
 	}
 	else if (mode == MFW_VIEW_KEYS){
 		buffer = (char *)malloc(sizeof(*key));
@@ -171,17 +171,17 @@ static void view_rules(int mode)
 		}
 		ioctl(fp, RD_KEY_TABLE, 0);
 
-		printf("+--------+------------------------------------------------------------------+\n");
-		printf("| key id |                              key                                 |\n");
-		printf("+--------+------------------------------------------------------------------+\n");
+		printf("=============================================================================\n");
+		printf("  key id                                key                                  \n");
+		printf("=============================================================================\n");
 
 		while ((byte_count = read(fp, buffer, sizeof(tf_key_t))) > 0)
 		{
 			key = (tf_key_t *)buffer;
-			printf("|  %-4d  ", key->key_id);
-			printf("|  %-63s |\n", key->key);
+			printf("   %-4d  ", key->key_id);
+			printf("   %-63s  \n", key->key);
 		}
-		printf("+--------+------------------------------------------------------------------+\n");
+		printf("=============================================================================\n");
 
 	}
 	free(buffer);
