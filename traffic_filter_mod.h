@@ -62,9 +62,9 @@
     printk(KERN_INFO "traffic filter: " pr_fmt(fmt) "\n", \
            ##__VA_ARGS__)
 
-#define MAC_FMT  "%x:%x:%x:%x:%x:%x"
-#define MAC(addr)   addr[0], addr[1], addr[2],\
-                    addr[3], addr[4], addr[5]
+#define MAC_FMT "%x:%x:%x:%x:%x:%x"
+#define MAC(addr) addr[0], addr[1], addr[2], \
+                  addr[3], addr[4], addr[5]
 #define NIP4_FMT "%u.%u.%u.%u"
 #define NIP4(addr) ((addr >> 24) & 0xFF), ((addr >> 16) & 0xFF), \
                    ((addr >> 8) & 0xFF), ((addr >> 0) & 0xFF)
@@ -72,7 +72,7 @@
 #define EQUAL_NET_ADDR(ip1, ip2, mask) (((ip1 ^ ip2) & mask) == 0)
 
 //filter support
-#define MAX_KEY_LEN 64 
+#define MAX_KEY_LEN 64
 #define PRINT_RULE 44
 #define PRINT_KEY 55
 #define WRITE_RULE 66
@@ -83,8 +83,9 @@
  *                          TYPEDEFS                          *
  *                                                            *
  **************************************************************/
-typedef struct local_rule{
-    uint8_t  in;
+typedef struct local_rule
+{
+    uint8_t in;
     uint16_t rule_no;
     uint32_t src_ip;
     uint32_t src_mask;
@@ -92,33 +93,37 @@ typedef struct local_rule{
     uint32_t dst_mask;
     uint16_t src_port;
     uint16_t dst_port;
-    uint8_t protocol;    
+    uint8_t protocol;
 
 } local_rule_t;
 
-typedef struct tf_key{
+typedef struct tf_key
+{
     uint32_t key_id;
-    unsigned char key[MAX_KEY_LEN]; 
+    unsigned char key[MAX_KEY_LEN];
 } tf_key_t;
 
 /* Mode of an instruction */
-typedef enum ops_mode {
-	MFW_NONE = 0,
-	MFW_ADD_RULE = 1,
+typedef enum ops_mode
+{
+    MFW_NONE = 0,
+    MFW_ADD_RULE = 1,
     MFW_ADD_KEY = 2,
-	MFW_REMOVE_RULE = 3,
+    MFW_REMOVE_RULE = 3,
     MFW_REMOVE_KEY = 4,
-	MFW_VIEW_RULE = 5,
-    MFW_VIEW_KEYS =6
+    MFW_VIEW_RULE = 5,
+    MFW_VIEW_KEYS = 6
 } ops_mode_t;
 
 /* Control instruction */
-typedef struct tf_ctl_rule {
-	ops_mode_t mode;
-	local_rule_t rule;
+typedef struct tf_ctl_rule
+{
+    ops_mode_t mode;
+    local_rule_t rule;
 } tf_ctl_rule_t;
 
-typedef struct tf_ctl_key {
+typedef struct tf_ctl_key
+{
     ops_mode_t mode;
     tf_key_t key;
 } tf_ctl_key_t;
@@ -130,7 +135,7 @@ typedef struct tf_ctl_key {
  **************************************************************/
 static unsigned int HOOK_FN(local_out_hook);
 static unsigned int HOOK_FN(local_in_hook);
-void hex_dump_skb(struct sk_buff*);
+void hex_dump_skb(struct sk_buff *);
 static void rule_add(local_rule_t *rule);
 static void rule_del(local_rule_t *rule);
 static int tfdev_open(struct inode *inode, struct file *file);
@@ -162,12 +167,11 @@ static struct nf_hook_ops local_in_filter = {
 
 struct file_operations dev_fops = {
     .owner = THIS_MODULE,
-	.read = tfdev_read,
-	.write = tfdev_write,
+    .read = tfdev_read,
+    .write = tfdev_write,
     .unlocked_ioctl = tfdev_ioctl,
-	.open = tfdev_open,
-	.release = tfdev_release
-};
+    .open = tfdev_open,
+    .release = tfdev_release};
 
 /**************************************************************
  *                                                            *

@@ -57,8 +57,7 @@ static struct list_head In_lhead;  /* Head of inbound-rule list */
 static struct list_head Out_lhead; /* Head of outbound-rule list */
 static struct list_head key_lhead;
 
-static int Device_open;   /* Opening counter of a device file */
-static char *user_buffer; /* A buffer for receving data from a user space */
+static int Device_open; /* Opening counter of a device file */
 
 static struct class *tfdev_class = NULL;   // The device-driver class struct pointer
 static struct device *tfdev_device = NULL; // The device-driver device struct pointer
@@ -114,23 +113,6 @@ MODULE_ALIAS("nf_firewall");
  *                           FILTER                           *
  *                                                            *
  **************************************************************/
-void hex_dump_skb(struct sk_buff *skb)
-{
-    do
-    {
-        int i;
-        u8 *it = (u8 *)skb_mac_header(skb);
-        printk("\n");
-        printk("000000 ");
-        for (i = 0; i < skb->len; i++)
-        {
-            printk("%02x ", (it[i]));
-            if (15 == i % 16)
-                printk("\n%06x: ", (i + 1));
-        }
-        printk("\n");
-    } while (0);
-}
 
 static unsigned int HOOK_FN(local_out_hook)
 {
@@ -182,7 +164,7 @@ static unsigned int HOOK_FN(local_out_hook)
                     ret = strstr(dns_domain, node->key.key);
                     if (ret != NULL)
                         DBG_DEBUG("[BLOCKED] DNS: %s", dns_domain);
-                        return NF_DROP;
+                    return NF_DROP;
                 }
             }
             break;
@@ -471,6 +453,7 @@ static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length,
 {
     tf_ctl_rule_t *ctlp;
     tf_ctl_key_t *ctlk;
+    char *user_buffer = NULL;
     int byte_write = 0;
 
     if (WRITE_SWITCH == WRITE_RULE)
@@ -480,6 +463,13 @@ static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length,
         {
             DBG_WARN("Receives incomplete instruction");
             return byte_write;
+        }
+
+        user_buffer = (char *)kmalloc(length, GFP_KERNEL);
+        if (user_buffer == NULL)
+        {
+            DBG_ERR("Alloc error for user_buffer insufficient memory");
+            return -ENOMEM;
         }
 
         /* Transfer user-space data to kernel-space buffer */
@@ -508,6 +498,13 @@ static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length,
             return byte_write;
         }
 
+        user_buffer = (char *)kmalloc(length, GFP_KERNEL);
+        if (user_buffer == NULL)
+        {
+            DBG_ERR("Alloc error for user_buffer insufficient memory");
+            return -ENOMEM;
+        }
+
         /* Transfer user-space data to kernel-space buffer */
         copy_from_user(user_buffer, buffer, sizeof(tf_ctl_key_t));
 
@@ -527,7 +524,7 @@ static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length,
         return sizeof(tf_ctl_key_t);
     }
 
-    return -1;
+    return -EFAULT;
 }
 
 static long tfdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
@@ -556,12 +553,6 @@ static int __init nf_traffic_filter_init(void)
     int ret;
     /* Initialize static global variables */
     Device_open = 0;
-    user_buffer = (char *)kzalloc(sizeof(tf_ctl_rule_t), GFP_KERNEL);
-    if (user_buffer == NULL)
-    {
-        DBG_ERR("traffic filter: Fails to start due to out of memory");
-        return -ENOMEM;
-    }
 
     /* Register character device */
     ret = register_chrdev(DEVICE_MAJOR_NUM, DEVICE_INTF_NAME, &dev_fops);
@@ -611,8 +602,6 @@ static void __exit nf_traffic_filter_exit(void)
     struct rule_node *ntmp;
     struct key_node *knodep;
     struct key_node *ktmp;
-
-    kfree(user_buffer);
 
     list_for_each_entry_safe(nodep, ntmp, &In_lhead, list)
     {

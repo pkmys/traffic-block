@@ -1,5 +1,23 @@
+/* *
+ * @module: dns.c
+ * @author: Pawan Kumar
+ * @email: jmppawanhit@gmail.com
+ * @license: GPL
+ * @domain: Linux Network Programming
+ * @description: Demonstrating the simple firewall module 
+ *               using netfilter hooks.
+ * @copyright: Copyright (C) 2018
+ */
+
 #include "dns.h"
-/*
+
+static inline unsigned char *dns_get_payload(struct dnshdr *dnshr);
+
+static inline unsigned char *dns_get_payload(struct dnshdr *dnshr)
+{
+    return (unsigned char *)dnshr + sizeof(struct dnshdr);
+}
+
 void dns_get_domain_name(struct dnshdr *dnshr, unsigned char *domain)
 {
     unsigned char *dns_pload = dns_get_payload(dnshr);
@@ -17,4 +35,4 @@ void dns_get_domain_name(struct dnshdr *dnshr, unsigned char *domain)
         domain[host_len] = '.';
         host_len++;
     }
-}*/
+}
