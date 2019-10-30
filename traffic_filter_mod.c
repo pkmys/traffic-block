@@ -41,7 +41,6 @@
 #define DEVICE_INTF_NAME "tfdev"
 #define DEVICE_MAJOR_NUM 121
 #define CLASS_NAME "tfdev"
-#define ENABLE_SKB_DUMP
 
 #define RD_GEN_TABLE _IOW(DEVICE_MAJOR_NUM, 1, uint32_t *)
 #define RD_KEY_TABLE _IOW(DEVICE_MAJOR_NUM, 2, uint32_t *)
@@ -132,9 +131,6 @@ static unsigned int HOOK_FN(local_out_hook)
     struct key_node *node = NULL;
     struct list_head *lheadp = &key_lhead;
     struct list_head *lp = NULL;
-#ifdef ENABLE_SKB_DUMP
-    util_dump_hex(skb_mac_header(skb), skb->len);
-#endif
     if (!skb || lheadp->next == lheadp)
         return NF_ACCEPT;
 
@@ -360,7 +356,7 @@ static void rule_add(local_rule_t *rule)
     if (nodep->rule.in == 1)
     {
         list_add_tail(&nodep->list, &In_lhead);
-        PRINT_INFO("NEW IN RULE:");
+        PRINT_INFO("NEW IN RULE: %d\n", rule->rule_no);
         PRINT_INFO("src ip: " NIP4_FMT "  src mask: " NIP4_FMT "  src port: %u"
                    " dest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
                    NIP4(nodep->rule.src_ip), NIP4(nodep->rule.src_mask), nodep->rule.src_port,
@@ -369,7 +365,7 @@ static void rule_add(local_rule_t *rule)
     else
     {
         list_add_tail(&nodep->list, &Out_lhead);
-        PRINT_INFO("NEW OUT RULE:");
+        PRINT_INFO("NEW OUT RULE: %d\n", rule->rule_no);
         PRINT_INFO("src ip: " NIP4_FMT "  src mask: " NIP4_FMT "  src port: %u"
                    " dest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
                    NIP4(nodep->rule.src_ip), NIP4(nodep->rule.src_mask), nodep->rule.src_port,
@@ -395,15 +391,15 @@ static void rule_del(local_rule_t *rule)
         {
             list_del(lp->next);
             util_id_dallocate(node->rule.rule_no, global_keystore->__proto_bit_array);
-            kfree(node);
             if (rule->in == 1)
-                PRINT_INFO("IN RULE DELETE:");
+                PRINT_INFO("IN RULE DELETE: %d\n", rule->rule_no);
             else
-                PRINT_INFO("OUT RULE DELETE:");
+                PRINT_INFO("OUT RULE DELETE: %d\n", rule->rule_no);
             PRINT_INFO("src ip: " NIP4_FMT "  src mask: " NIP4_FMT "  src port: %u"
                        " dest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
                        NIP4(rule->src_ip), NIP4(rule->src_mask), rule->src_port,
                        NIP4(rule->dst_ip), NIP4(rule->dst_mask), rule->dst_port);
+	    kfree(node);
             break;
         }
     }
@@ -426,7 +422,7 @@ static void key_del(tf_key_t *key)
         if (node->key.key_id == key->key_id)
         {
             list_del(lp->next);
-            PRINT_INFO("Deleted key_id:%d  key:%s", key->key_id, node->key.key);
+            PRINT_INFO("DELETE KEY: %d %s", key->key_id, node->key.key);
             util_id_dallocate(node->key.key_id, global_keystore->__keystore_bit_array);
             kfree(node);
             break;
@@ -447,7 +443,7 @@ static void key_add(tf_key_t *key)
     nodep->key = *key;
 
     list_add_tail(&nodep->list, &key_lhead);
-    PRINT_INFO("Added key_id:%d key:%s", key->key_id, key->key);
+    PRINT_INFO("ADD KEY: %d %s", key->key_id, key->key);
 }
 
 /*
@@ -617,19 +613,19 @@ static void __exit nf_traffic_filter_exit(void)
     list_for_each_entry_safe(nodep, ntmp, &In_lhead, list)
     {
         list_del(&nodep->list);
-        DBG_INFO("Deleted inbound rule %p", nodep);
+        DBG_INFO("REMOVE RULE: %d", nodep->rule.rule_no);
         kfree(nodep);
     }
     list_for_each_entry_safe(nodep, ntmp, &Out_lhead, list)
     {
         list_del(&nodep->list);
-        DBG_INFO("Deleted outbound rule %p", nodep);
+        DBG_INFO("REMOVE RULE: %d", nodep->rule.rule_no);
         kfree(nodep);
     }
     list_for_each_entry_safe(knodep, ktmp, &key_lhead, list)
     {
         list_del(&knodep->list);
-        DBG_INFO("Deleted key %s", knodep->key.key);
+        DBG_INFO("REMOVE KEY: %d", knodep->key.key_id);
         kfree(knodep);
     }
 
