@@ -17,37 +17,34 @@
 void util_dump_hex(const __UINT8_TYPE__* const ptr, __UINT64_TYPE__ len)
 {
     printk("DUMP %p, %lu:", ptr, len);
-    do
+    __INT32_TYPE__ i = 0;
+    __INT32_TYPE__ k = 0;
+    __UINT32_TYPE__ j = 0;
+    char buffer[128] = {0};
+    printk("\n");
+    j = snprintf(buffer, 18, "      0x000000:  ");
+    for (i = 0; i < len; i++)
     {
-        __INT32_TYPE__ i = 0;
-        __INT32_TYPE__ k = 0;
-        __UINT32_TYPE__ j = 0;
-        char buffer[128] = {0};
-        printk("\n");
-        j = snprintf(buffer, 18, "      0x000000:  ");
-        for (i = 0; i < len; i++)
+        j += snprintf(buffer+j , 3, "%02x", ptr[i]);
+        if (i & 0x01)
+            j += snprintf(buffer+j , 2, " ");
+        if (15 == i % 16)
         {
-            j += snprintf(buffer+j , 3, "%02x", ptr[i]);
-            if (i & 0x01)
-                j += snprintf(buffer+j , 2, " ");
-            if (15 == i % 16)
+            j += snprintf(buffer+j , 2, " ");
+            for (k = (i - 16); k < i; k++)
             {
-                j += snprintf(buffer+j , 2, " ");
-                for (k = (i - 16); k < i; k++)
-                {
-                    if (ptr[k] <= 0x7F)
-                        j += snprintf(buffer+j , 2, "%c", ptr[k]);
-                    else
-                        j += snprintf(buffer+j , 2, ".");
-                }
-                printk("%s", buffer);
-                memset(buffer, 0, 128);
-                j = 0;
-                j += snprintf(buffer+j , 18, "      0x%06x:  ", (i + 1));
+                if (ptr[k] <= 0x7F)
+                    j += snprintf(buffer+j , 2, "%c", ptr[k]);
+                else
+                    j += snprintf(buffer+j , 2, ".");
             }
+            printk("%s", buffer);
+            memset(buffer, 0, 128);
+            j = 0;
+            j += snprintf(buffer+j , 18, "      0x%06x:  ", (i + 1));
         }
-        printk("\n");
-    } while (0);
+    }
+    printk("\n");
 }
 
 static int __id_allocator(__UINT64_TYPE__ *__key_array)
