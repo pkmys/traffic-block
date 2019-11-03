@@ -131,6 +131,7 @@ static unsigned int HOOK_FN(local_out_hook)
     struct key_node *node = NULL;
     struct list_head *lheadp = &key_lhead;
     struct list_head *lp = NULL;
+    __u64 len = 0;
     if (!skb || lheadp->next == lheadp)
         return NF_ACCEPT;
 
@@ -166,6 +167,9 @@ static unsigned int HOOK_FN(local_out_hook)
                     if (ret != NULL)
                     {
                         DBG_DEBUG("[BLOCKED] DNS: %s", dns_domain);
+                        if (skb_is_nonlinear(skb)) len = skb->data_len;
+                        else len = skb->len;
+                        util_dump_hex(skb_mac_header(skb), len);
                         return NF_DROP;
                     }
                 }
