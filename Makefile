@@ -4,6 +4,10 @@ KERNDIR:= "/lib/modules/$(shell uname -r)/build/"
 DNS:= dns
 UTIL:= util
 
+ccflags-y:= -Werror
+ifeq (${DEBUG},1)
+ccflags-y+= -DTF_DEBUG_SKB -DDEBUG_DEBUG
+endif
 obj-m:= ${TARGET}.o
 ${TARGET}-objs:= ${TARGET}_mod.o ${DNS}.o ${UTIL}.o
 

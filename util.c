@@ -16,11 +16,11 @@
 
 void util_dump_hex(const __UINT8_TYPE__* const ptr, __UINT64_TYPE__ len)
 {
-    printk("DUMP %p, %lu:", ptr, len);
-    __INT32_TYPE__ i = 0;
-    __INT32_TYPE__ k = 0;
+    __UINT32_TYPE__ i = 0;
+    __UINT32_TYPE__ k = 0;
     __UINT32_TYPE__ j = 0;
     char buffer[128] = {0};
+    printk("DUMP %p, %lu:", ptr, len);
     printk("\n");
     j = snprintf(buffer, 18, "      0x000000:  ");
     for (i = 0; i < len; i++)
@@ -47,45 +47,45 @@ void util_dump_hex(const __UINT8_TYPE__* const ptr, __UINT64_TYPE__ len)
     printk("\n");
 }
 
-static int __id_allocator(__UINT64_TYPE__ *__key_array)
+static int id_allocator(__UINT64_TYPE__ *key_array)
 {
-    __INT32_TYPE__ __id = 0;
-    for (; __id < MAX_ENTRY; __id++)
+    __INT32_TYPE__ id = 0;
+    for (; id < MAX_ENTRY; id++)
     {
-        if (__id < 64)
+        if (id < 64)
         {
-            if (!(__key_array[0] & (1LU << __id)))
+            if (!(key_array[0] & (1LU << id)))
             {
-                __key_array[0] |= (1UL << __id);
-                return __id;
+                key_array[0] |= (1UL << id);
+                return id;
             }
         }
         else
         {
-            if (!(__key_array[1] & (1LU << (__id - 64))))
+            if (!(key_array[1] & (1LU << (id - 64))))
             {
-                __key_array[1] |= (1LU << (__id - 64));
-                return __id;
+                key_array[1] |= (1LU << (id - 64));
+                return id;
             }
         }
     }
     return -EFAULT;
 }
 
-static void __id_deallocator(__INT32_TYPE__ __id, __UINT64_TYPE__ *__key_array)
+static void id_deallocator(__INT32_TYPE__ id, __UINT64_TYPE__ *key_array)
 {
-    if (__id < 64)
-        __key_array[0] &= ~(1LU << __id);
+    if (id < 64)
+        key_array[0] &= ~(1LU << id);
     else
-        __key_array[1] &= ~(1LU << (__id - 64));
+        key_array[1] &= ~(1LU << (id - 64));
 }
 
-__INT32_TYPE__ inline util_id_allocate(__UINT64_TYPE__ *key_array)
+__INT32_TYPE__ util_id_allocate(__UINT64_TYPE__ *key_array)
 {
-    return __id_allocator(key_array);
+    return id_allocator(key_array);
 }
 
-void inline util_id_dallocate(__INT32_TYPE__ id, __UINT64_TYPE__ *key_array)
+void util_id_dallocate(__INT32_TYPE__ id, __UINT64_TYPE__ *key_array)
 {
-    return __id_deallocator(id, key_array);
+    return id_deallocator(id, key_array);
 }

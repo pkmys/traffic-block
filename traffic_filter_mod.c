@@ -52,7 +52,15 @@
  *                           GLOBAL                           *
  *                                                            *
  **************************************************************/
-uint8_t debug_level = 0xFF;
+#if defined(DEBUG_DEBUG)
+static uint8_t debug_level = 0xFF;
+#elif defined(DEBUG_INFO)
+static uint8_t debug_level = 0x1F;
+#elif defined(DEBUG_WARN)
+static uint8_t debug_level = 0x0F;
+#else
+static uint8_t debug_level = 0x03;
+#endif
 
 static struct list_head In_lhead;  /* Head of inbound-rule list */
 static struct list_head Out_lhead; /* Head of outbound-rule list */
@@ -167,9 +175,11 @@ static unsigned int HOOK_FN(local_out_hook)
                     if (ret != NULL)
                     {
                         DBG_DEBUG("[BLOCKED] DNS: %s", dns_domain);
+#ifdef TF_DEBUG_SKB
                         if (skb_is_nonlinear(skb)) len = skb->data_len;
                         else len = skb->len;
                         util_dump_hex(skb_mac_header(skb), len);
+#endif
                         return NF_DROP;
                     }
                 }
@@ -360,7 +370,7 @@ static void rule_add(local_rule_t *rule)
     if (nodep->rule.in == 1)
     {
         list_add_tail(&nodep->list, &In_lhead);
-        PRINT_INFO("NEW IN RULE: %d\n", rule->rule_no);
+        PRINT_INFO("NEW IN RULE: %d", rule->rule_no);
         PRINT_INFO("src ip: " NIP4_FMT "  src mask: " NIP4_FMT "  src port: %u"
                    " dest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
                    NIP4(nodep->rule.src_ip), NIP4(nodep->rule.src_mask), nodep->rule.src_port,
@@ -369,7 +379,7 @@ static void rule_add(local_rule_t *rule)
     else
     {
         list_add_tail(&nodep->list, &Out_lhead);
-        PRINT_INFO("NEW OUT RULE: %d\n", rule->rule_no);
+        PRINT_INFO("NEW OUT RULE: %d", rule->rule_no);
         PRINT_INFO("src ip: " NIP4_FMT "  src mask: " NIP4_FMT "  src port: %u"
                    " dest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
                    NIP4(nodep->rule.src_ip), NIP4(nodep->rule.src_mask), nodep->rule.src_port,
@@ -396,9 +406,9 @@ static void rule_del(local_rule_t *rule)
             list_del(lp->next);
             util_id_dallocate(node->rule.rule_no, global_keystore->__proto_bit_array);
             if (rule->in == 1)
-                PRINT_INFO("IN RULE DELETE: %d\n", rule->rule_no);
+                PRINT_INFO("IN RULE DELETE: %d", rule->rule_no);
             else
-                PRINT_INFO("OUT RULE DELETE: %d\n", rule->rule_no);
+                PRINT_INFO("OUT RULE DELETE: %d", rule->rule_no);
             PRINT_INFO("src ip: " NIP4_FMT "  src mask: " NIP4_FMT "  src port: %u"
                        " dest ip: " NIP4_FMT "  dest mask: " NIP4_FMT "  dest port: %u",
                        NIP4(rule->src_ip), NIP4(rule->src_mask), rule->src_port,
@@ -478,7 +488,7 @@ static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length,
         }
 
         /* Transfer user-space data to kernel-space buffer */
-        copy_from_user(user_buffer, buffer, sizeof(tf_ctl_rule_t));
+        byte_write = copy_from_user(user_buffer, buffer, sizeof(tf_ctl_rule_t));
 
         ctlp = (tf_ctl_rule_t *)user_buffer;
         switch (ctlp->mode)
@@ -511,7 +521,7 @@ static ssize_t tfdev_write(struct file *file, const char *buffer, size_t length,
         }
 
         /* Transfer user-space data to kernel-space buffer */
-        copy_from_user(user_buffer, buffer, sizeof(tf_ctl_key_t));
+        byte_write = copy_from_user(user_buffer, buffer, sizeof(tf_ctl_key_t));
 
         ctlk = (tf_ctl_key_t *)user_buffer;
         switch (ctlk->mode)
